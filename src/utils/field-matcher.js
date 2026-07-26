@@ -2,7 +2,6 @@ var EasyAutoFill = EasyAutoFill || {};
 
 EasyAutoFill.FieldMatcher = {
 
-  // HTML autocomplete attribute → profile key (highest confidence, standardized by spec)
   AUTOCOMPLETE_MAP: {
     'name':                 'name',
     'honorific-prefix':     'prefix',
@@ -14,8 +13,9 @@ EasyAutoFill.FieldMatcher = {
     'email':                'email',
     'username':             'email',
     'tel':                  'phone',
-    'tel-national':         'phone',
-    'tel-local':            'phone',
+    'tel-national':         'phone_number',
+    'tel-local':            'phone_number',
+    'tel-country-code':     'phone_country_code',
     'tel-extension':        'phone_extension',
     'organization':         'company',
     'organization-title':   'current_title',
@@ -30,113 +30,101 @@ EasyAutoFill.FieldMatcher = {
     'bday':                 'date_of_birth',
     'sex':                  'gender',
     'url':                  'website',
-    'photo':                'photo',
     'language':             'languages',
   },
 
-  // Semantic concept groups: each profile key → all natural language ways people refer to it
   SEMANTIC_MAP: {
-    // Identity
     name:           ['name', 'full name', 'your name', 'applicant name', 'candidate name', 'legal name', 'complete name', 'display name'],
-    first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'first', 'fname', 'nombre'],
+    first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'first', 'fname', 'local given name', 'local given names'],
     middle_name:    ['middle name', 'middle initial', 'middle', 'second name'],
-    last_name:      ['last name', 'family name', 'surname', 'last', 'lname', 'apellido'],
-    prefix:         ['prefix', 'title', 'salutation', 'mr mrs ms dr', 'honorific'],
-    nickname:       ['nickname', 'preferred name', 'known as', 'goes by', 'alias', 'display name'],
+    last_name:      ['last name', 'family name', 'surname', 'last', 'lname', 'local family name'],
+    prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific'],
+    nickname:       ['nickname', 'preferred name', 'known as', 'goes by', 'alias'],
     gender:         ['gender', 'sex', 'male female', 'identity'],
     date_of_birth:  ['date of birth', 'dob', 'birthday', 'birth date', 'born on'],
     nationality:    ['nationality', 'citizenship', 'national origin'],
 
-    // Contact
     email:          ['email', 'e mail', 'email address', 'mail', 'your email', 'contact email', 'primary email', 'work email', 'personal email'],
     phone:          ['phone', 'telephone', 'tel', 'mobile', 'cell', 'contact number', 'phone number', 'mobile number', 'cellular', 'mobile phone', 'cell phone', 'primary phone', 'home phone', 'work phone', 'daytime phone'],
+    phone_number:   ['phone number', 'mobile number', 'telephone number', 'contact number', 'cell number'],
+    phone_country_code: ['country phone code', 'country code', 'phone code', 'dialing code', 'isd code', 'calling code'],
     phone_extension:['phone extension', 'ext', 'extension', 'telephone extension'],
 
-    // Address
-    address:        ['address', 'street', 'street address', 'address line 1', 'address line1', 'mailing address', 'residential address', 'home address', 'current address', 'permanent address', 'line 1'],
-    address_line_2: ['address line 2', 'address line2', 'line 2', 'apt', 'apartment', 'suite', 'unit', 'floor', 'building'],
+    address:        ['address', 'street', 'street address', 'address line 1', 'address line1', 'mailing address', 'residential address', 'home address', 'current address', 'permanent address'],
+    address_line_2: ['address line 2', 'address line2', 'apt', 'apartment', 'suite', 'unit', 'floor', 'building'],
     city:           ['city', 'town', 'municipality', 'locality', 'village', 'district', 'metro'],
-    state:          ['state', 'province', 'region', 'county', 'territory', 'prefecture', 'department'],
+    state:          ['state', 'province', 'region', 'county', 'territory', 'prefecture'],
     zip:            ['zip', 'zipcode', 'zip code', 'postal code', 'postcode', 'pin code', 'pincode', 'postal'],
     country:        ['country', 'nation', 'country region', 'location country'],
-    location:       ['location', 'current location', 'city state', 'where are you based', 'based in', 'residing in'],
+    location:       ['location', 'current location', 'city state', 'where are you based', 'based in'],
 
-    // Professional
     company:        ['company', 'employer', 'organization', 'organisation', 'current company', 'company name', 'current employer', 'firm', 'workplace', 'employer name', 'most recent employer'],
-    current_title:  ['job title', 'title', 'position', 'role', 'designation', 'current title', 'current role', 'current position', 'position title', 'professional title', 'what is your role'],
-    current_role:   ['current role', 'present role', 'latest role', 'most recent role', 'most recent position'],
-    work_experience:['experience', 'work experience', 'professional experience', 'employment history', 'work history', 'career history', 'relevant experience', 'previous experience', 'past employment', 'employment details'],
-    experience_years:['years of experience', 'experience years', 'total experience', 'how many years', 'years in field', 'yoe'],
-    professional_summary: ['summary', 'professional summary', 'about', 'about me', 'bio', 'biography', 'objective', 'profile summary', 'career objective', 'personal statement', 'career summary', 'introduction', 'tell us about yourself', 'describe yourself', 'about you', 'brief description', 'professional profile', 'executive summary', 'overview'],
-    cover_letter:   ['cover letter', 'coverletter', 'motivation', 'motivation letter', 'letter of motivation', 'why this role', 'why are you interested', 'message to hiring', 'message to the hiring team', 'why do you want', 'additional information', 'letter of interest', 'personal message', 'note to recruiter', 'why should we hire', 'what interests you'],
-    notice_period:  ['notice period', 'notice', 'how soon can you start', 'earliest start date', 'when can you start', 'when can you join', 'joining date'],
+    current_title:  ['job title', 'position', 'role', 'designation', 'current title', 'current role', 'current position', 'position title', 'professional title'],
+    current_role:   ['current role', 'present role', 'latest role', 'most recent role'],
+    work_experience:['experience', 'work experience', 'professional experience', 'employment history', 'work history', 'career history', 'relevant experience'],
+    experience_years:['years of experience', 'experience years', 'total experience', 'how many years', 'yoe'],
+    professional_summary: ['summary', 'professional summary', 'about', 'about me', 'bio', 'biography', 'objective', 'profile summary', 'career objective', 'personal statement', 'career summary', 'tell us about yourself', 'describe yourself', 'professional profile', 'executive summary', 'overview'],
+    cover_letter:   ['cover letter', 'motivation', 'motivation letter', 'why this role', 'why are you interested', 'message to hiring', 'message to the hiring team', 'why do you want', 'additional information', 'letter of interest', 'personal message', 'note to recruiter'],
+    notice_period:  ['notice period', 'how soon can you start', 'earliest start date', 'when can you start', 'when can you join'],
     availability:   ['availability', 'start date', 'available from', 'available date', 'earliest start', 'when available', 'date available'],
 
-    // Education
-    education:      ['education', 'qualification', 'academic', 'academic background', 'educational background', 'educational history', 'academic history', 'schooling'],
-    degree:         ['degree', 'highest degree', 'qualification name', 'level of education', 'education level', 'major degree', 'field of study', 'course', 'program', 'major'],
-    university:     ['university', 'college', 'school', 'institution', 'alma mater', 'school name', 'college name', 'university name', 'institution name', 'where did you study'],
-    graduation_year:['graduation year', 'grad year', 'year of graduation', 'graduation date', 'year completed', 'completion year', 'pass out year', 'batch'],
-    gpa:            ['gpa', 'grade', 'cgpa', 'marks', 'score', 'percentage', 'grade point', 'academic score'],
+    education:      ['education', 'qualification', 'academic background', 'educational background', 'educational history'],
+    degree:         ['degree', 'highest degree', 'qualification name', 'level of education', 'education level', 'field of study', 'course', 'program', 'major'],
+    university:     ['university', 'college', 'school', 'institution', 'alma mater', 'school name', 'college name', 'university name'],
+    graduation_year:['graduation year', 'grad year', 'year of graduation', 'graduation date', 'completion year'],
+    gpa:            ['gpa', 'grade', 'cgpa', 'marks', 'score', 'percentage', 'grade point'],
 
-    // Online presence
-    linkedin:       ['linkedin', 'linkedin url', 'linkedin profile', 'linkedin link', 'linked in'],
-    github:         ['github', 'github url', 'github profile', 'github link', 'git hub'],
-    website:        ['website', 'portfolio', 'personal website', 'url', 'homepage', 'personal url', 'portfolio url', 'portfolio link', 'blog', 'web page', 'personal site', 'online portfolio'],
-    medium:         ['medium', 'medium profile', 'blog url', 'blog link', 'writing portfolio'],
-    twitter:        ['twitter', 'twitter url', 'x profile', 'x handle', 'x fka twitter', 'x formerly twitter', 'x twitter'],
+    linkedin:       ['linkedin', 'linkedin url', 'linkedin profile', 'linked in'],
+    github:         ['github', 'github url', 'github profile', 'git hub'],
+    website:        ['website', 'portfolio', 'personal website', 'homepage', 'portfolio url', 'blog', 'personal site', 'online portfolio'],
+    medium:         ['medium', 'medium profile', 'blog url', 'writing portfolio'],
+    twitter:        ['twitter', 'x profile', 'x handle', 'x fka twitter', 'x formerly twitter', 'x twitter'],
     facebook:       ['facebook', 'facebook url', 'facebook profile', 'fb'],
-    instagram:      ['instagram', 'instagram url', 'instagram profile', 'ig'],
+    instagram:      ['instagram', 'instagram url', 'ig'],
 
-    // Skills & qualifications
-    skills:         ['skills', 'technical skills', 'key skills', 'competencies', 'expertise', 'technologies', 'tech stack', 'core skills', 'areas of expertise', 'strengths', 'proficiencies', 'capabilities'],
+    skills:         ['skills', 'technical skills', 'key skills', 'competencies', 'expertise', 'technologies', 'tech stack', 'core skills', 'proficiencies'],
     technical_skills:['technical skills', 'tech skills', 'it skills', 'programming skills', 'hard skills'],
-    programming_languages: ['programming languages', 'coding languages', 'languages known', 'tech languages'],
-    tools:          ['tools', 'software', 'applications', 'platforms', 'frameworks', 'tools used', 'software proficiency'],
-    certifications: ['certifications', 'certificates', 'licenses', 'accreditations', 'professional certifications', 'credentials'],
+    programming_languages: ['programming languages', 'coding languages', 'tech languages'],
+    tools:          ['tools', 'software', 'applications', 'platforms', 'frameworks'],
+    certifications: ['certifications', 'certificates', 'licenses', 'accreditations'],
 
-    // Compensation & logistics
-    salary:         ['salary', 'expected salary', 'salary expectation', 'compensation', 'desired salary', 'pay expectation', 'expected ctc', 'current ctc', 'expected compensation', 'annual salary', 'pay rate', 'rate', 'hourly rate'],
-    visa:           ['visa', 'work authorization', 'visa status', 'sponsorship', 'right to work', 'work permit', 'authorized to work', 'legally authorized', 'require sponsorship', 'immigration status', 'work eligibility'],
+    salary:         ['salary', 'expected salary', 'salary expectation', 'compensation', 'desired salary', 'expected ctc', 'current ctc', 'pay rate', 'hourly rate'],
+    visa:           ['visa', 'work authorization', 'visa status', 'sponsorship', 'right to work', 'work permit', 'authorized to work', 'require sponsorship'],
 
-    // Other
     references:     ['references', 'referees', 'reference contact', 'professional references'],
-    languages:      ['languages', 'language skills', 'spoken languages', 'language proficiency', 'languages spoken', 'fluent in', 'linguistic skills'],
-    publications:   ['publications', 'research papers', 'papers', 'journal articles', 'published work', 'research publications'],
-    awards:         ['awards', 'honors', 'achievements', 'recognitions', 'accomplishments', 'scholarships', 'prizes'],
-    hobbies:        ['hobbies', 'interests', 'extracurricular', 'activities', 'pastimes', 'personal interests', 'leisure activities', 'outside interests'],
+    languages:      ['languages', 'language skills', 'spoken languages', 'language proficiency', 'languages spoken'],
+    publications:   ['publications', 'research papers', 'papers', 'journal articles', 'published work'],
+    awards:         ['awards', 'honors', 'achievements', 'recognitions', 'accomplishments', 'scholarships'],
+    hobbies:        ['hobbies', 'interests', 'extracurricular', 'activities', 'pastimes', 'personal interests'],
   },
 
-  // Input type → profile key
   TYPE_MAP: {
     'email': 'email',
     'tel':   'phone',
     'url':   'website',
   },
 
-  // Semantic word groups for NLP-style understanding
   WORD_SYNONYMS: {
     'given':     ['first', 'fore', 'christian'],
     'family':    ['last', 'sur'],
+    'local':     [],
     'phone':     ['tel', 'telephone', 'mobile', 'cell', 'cellular', 'contact'],
-    'mail':      ['email', 'e-mail'],
+    'mail':      ['email'],
     'company':   ['employer', 'organization', 'organisation', 'firm', 'workplace'],
     'school':    ['university', 'college', 'institution'],
     'degree':    ['major', 'qualification', 'course', 'program'],
     'address':   ['street', 'residence', 'mailing'],
     'zip':       ['postal', 'postcode', 'pincode'],
     'city':      ['town', 'municipality', 'locality'],
-    'resume':    ['cv', 'curriculum vitae'],
     'summary':   ['objective', 'bio', 'about', 'overview', 'introduction', 'profile'],
     'cover':     ['motivation', 'interest'],
     'job':       ['position', 'role', 'designation'],
-    'website':   ['portfolio', 'homepage', 'url', 'blog', 'site'],
+    'website':   ['portfolio', 'homepage', 'blog', 'site'],
     'linkedin':  ['linked in'],
     'twitter':   ['x'],
     'experience':['history', 'background', 'employment'],
     'skills':    ['competencies', 'expertise', 'proficiencies', 'capabilities', 'strengths'],
     'salary':    ['compensation', 'pay', 'ctc', 'remuneration', 'wage'],
-    'notice':    ['notice period', 'joining'],
     'visa':      ['authorization', 'sponsorship', 'permit', 'eligibility'],
     'award':     ['honor', 'achievement', 'scholarship', 'prize', 'recognition'],
     'hobby':     ['interest', 'pastime', 'activity'],
@@ -144,12 +132,51 @@ EasyAutoFill.FieldMatcher = {
     'language':  ['linguistic', 'tongue'],
   },
 
+  // Fields that should ONLY contain URL values
+  URL_FIELDS: new Set(['linkedin', 'github', 'website', 'medium', 'twitter', 'facebook', 'instagram', 'portfolio']),
+
+  // Fields that should NEVER contain URL values
+  NON_URL_FIELDS: new Set(['name', 'first_name', 'last_name', 'middle_name', 'address', 'address_line_2', 'city', 'state', 'zip', 'country', 'phone', 'phone_number', 'phone_country_code', 'email', 'company', 'current_title', 'degree', 'university', 'salary', 'gpa']),
+
+  // === Pre-process profile to add derived fields ===
+
+  preprocessProfile(profileData) {
+    const data = { ...profileData };
+
+    // Parse phone number into parts
+    if (data.phone) {
+      const phoneMatch = data.phone.match(/^(\+\d{1,3})[\s.-]?(.+)/);
+      if (phoneMatch) {
+        if (!data.phone_country_code) data.phone_country_code = phoneMatch[1];
+        if (!data.phone_number) data.phone_number = phoneMatch[2].replace(/[\s.-]/g, '');
+      } else {
+        if (!data.phone_number) data.phone_number = data.phone.replace(/[\s.-]/g, '');
+      }
+    }
+
+    // Split name if not already split
+    if (data.name && !data.first_name) {
+      const parts = data.name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        data.first_name = parts[0];
+        data.last_name = parts.slice(1).join(' ');
+      }
+    }
+
+    return data;
+  },
+
   // === Main matching pipeline ===
 
   matchField(fieldInfo, profileData) {
     if (!profileData || !fieldInfo) return null;
 
-    // 1. Autocomplete attribute (highest priority, browser-standard)
+    // Skip checkboxes and radios — they need special handling, not text matching
+    if (fieldInfo.type === 'checkbox' || fieldInfo.type === 'radio') {
+      return null;
+    }
+
+    // 1. Autocomplete attribute
     const autoMatch = this.matchByAutocomplete(fieldInfo, profileData);
     if (autoMatch) return autoMatch;
 
@@ -160,7 +187,7 @@ EasyAutoFill.FieldMatcher = {
     const searchText = this.buildSearchText(fieldInfo);
     const tokens = this.tokenize(searchText);
 
-    // 3. Semantic keyword matching (expanded NLP synonyms)
+    // 3. Semantic keyword matching
     const semanticMatch = this.matchBySemantic(tokens, searchText, profileData);
     if (semanticMatch) return semanticMatch;
 
@@ -168,7 +195,7 @@ EasyAutoFill.FieldMatcher = {
     const tokenMatch = this.matchByTokenOverlap(tokens, profileData);
     if (tokenMatch) return tokenMatch;
 
-    // 5. Fuzzy matching (Levenshtein + synonyms)
+    // 5. Fuzzy matching
     const fuzzyMatch = this.matchByFuzzy(tokens, profileData);
     if (fuzzyMatch) return fuzzyMatch;
 
@@ -184,8 +211,8 @@ EasyAutoFill.FieldMatcher = {
       fieldInfo.ariaLabel || '',
     ];
     return parts.join(' ').toLowerCase()
-      .replace(/\(s\)/g, 's')       // "Name(s)" → "Names"
-      .replace(/\*/g, '')            // Remove required markers
+      .replace(/\(s\)/gi, 's')
+      .replace(/\*/g, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -195,7 +222,42 @@ EasyAutoFill.FieldMatcher = {
     return text.split(' ').filter(w => w.length > 1);
   },
 
-  // === Strategy 1: Autocomplete attribute ===
+  // === Validation: ensure value makes sense for the field ===
+
+  validateMatch(profileKey, value, fieldInfo) {
+    if (!value) return false;
+    const strValue = String(value);
+    const isURL = /^https?:\/\//.test(strValue) || /^www\./.test(strValue);
+
+    // URL values should not go into non-URL fields
+    if (isURL && this.NON_URL_FIELDS.has(profileKey)) return false;
+
+    // Non-URL values should not go into URL-expected fields based on field label
+    const searchText = this.buildSearchText(fieldInfo);
+    if (!isURL && this.URL_FIELDS.has(profileKey)) {
+      // This is fine — we matched a URL field key but the value isn't a URL
+      // Only block if the field clearly expects a URL
+    }
+
+    // Address fields should not get URL values
+    if (isURL && (searchText.includes('address') || searchText.includes('street') || searchText.includes('city'))) {
+      return false;
+    }
+
+    // Name fields should not get long text
+    if ((profileKey === 'first_name' || profileKey === 'last_name' || profileKey === 'middle_name') && strValue.length > 50) {
+      return false;
+    }
+
+    // Phone fields should not get non-numeric (except + and spaces)
+    if (profileKey.startsWith('phone') && !/^[\d\s+()-]+$/.test(strValue)) {
+      return false;
+    }
+
+    return true;
+  },
+
+  // === Strategy 1: Autocomplete ===
   matchByAutocomplete(fieldInfo, profileData) {
     const ac = (fieldInfo.autocomplete || '').toLowerCase().trim();
     if (!ac || ac === 'off' || ac === 'on') return null;
@@ -204,7 +266,7 @@ EasyAutoFill.FieldMatcher = {
     const lastToken = tokens[tokens.length - 1];
 
     const profileKey = this.AUTOCOMPLETE_MAP[lastToken] || this.AUTOCOMPLETE_MAP[ac];
-    if (profileKey && profileData[profileKey]) {
+    if (profileKey && profileData[profileKey] && this.validateMatch(profileKey, profileData[profileKey], fieldInfo)) {
       return {
         profileKey,
         value: profileData[profileKey],
@@ -218,11 +280,11 @@ EasyAutoFill.FieldMatcher = {
   // === Strategy 2: Input type ===
   matchByInputType(fieldInfo, profileData) {
     const profileKey = this.TYPE_MAP[fieldInfo.type];
-    if (profileKey && profileData[profileKey]) {
+    if (profileKey && profileData[profileKey] && this.validateMatch(profileKey, profileData[profileKey], fieldInfo)) {
       return {
         profileKey,
         value: profileData[profileKey],
-        confidence: 0.95,
+        confidence: 0.90,
         method: 'type'
       };
     }
@@ -240,23 +302,28 @@ EasyAutoFill.FieldMatcher = {
       for (const phrase of phrases) {
         const score = this.semanticScore(tokens, searchText, phrase);
         if (score > bestScore) {
+          const value = profileData[profileKey];
+          if (!this.validateMatch(profileKey, value, { label: searchText })) continue;
+
           bestScore = score;
           bestMatch = {
             profileKey,
-            value: profileData[profileKey],
+            value,
             confidence: Math.min(0.96, 0.55 + score * 0.42),
             method: 'semantic'
           };
         }
       }
 
-      // Also check using word synonym expansion
       const expandedScore = this.synonymExpandedScore(tokens, profileKey);
       if (expandedScore > bestScore) {
+        const value = profileData[profileKey];
+        if (!this.validateMatch(profileKey, value, { label: searchText })) continue;
+
         bestScore = expandedScore;
         bestMatch = {
           profileKey,
-          value: profileData[profileKey],
+          value,
           confidence: Math.min(0.92, 0.55 + expandedScore * 0.38),
           method: 'synonym'
         };
@@ -267,20 +334,21 @@ EasyAutoFill.FieldMatcher = {
   },
 
   semanticScore(tokens, searchText, phrase) {
-    // Exact full phrase match
     if (searchText === phrase) return 1.0;
     if (searchText.includes(phrase)) return 0.95;
 
-    // Token-level matching
     const phraseTokens = phrase.split(' ');
 
-    // All phrase tokens found in search tokens
     const allFound = phraseTokens.every(pt =>
       tokens.some(st => st === pt || st.includes(pt) || pt.includes(st))
     );
     if (allFound && phraseTokens.length > 1) return 0.9;
 
-    // Partial token overlap
+    // Single-word phrase exact match in tokens
+    if (phraseTokens.length === 1) {
+      if (tokens.includes(phraseTokens[0])) return 0.85;
+    }
+
     const matchCount = phraseTokens.filter(pt =>
       tokens.some(st => st === pt || (st.length > 3 && pt.length > 3 && (st.includes(pt) || pt.includes(st))))
     ).length;
@@ -295,7 +363,6 @@ EasyAutoFill.FieldMatcher = {
   },
 
   synonymExpandedScore(tokens, profileKey) {
-    // Expand search tokens using synonym groups and check against profile key
     const keyTokens = profileKey.split('_');
     let matchedKeyTokens = 0;
 
@@ -328,7 +395,6 @@ EasyAutoFill.FieldMatcher = {
 
       let matchCount = 0;
       for (const kt of keyTokens) {
-        // Check direct match and synonym-expanded match
         const synonyms = this.WORD_SYNONYMS[kt] || [];
         const variants = [kt, ...synonyms];
 
@@ -340,10 +406,13 @@ EasyAutoFill.FieldMatcher = {
       if (matchCount > 0) {
         const score = matchCount / keyTokens.length;
         if (score > bestScore && score >= 0.5) {
+          const value = profileData[profileKey];
+          if (!this.validateMatch(profileKey, value, { label: tokens.join(' ') })) continue;
+
           bestScore = score;
           bestMatch = {
             profileKey,
-            value: profileData[profileKey],
+            value,
             confidence: 0.5 + score * 0.3,
             method: 'token'
           };
@@ -363,7 +432,6 @@ EasyAutoFill.FieldMatcher = {
       const keyNorm = profileKey.replace(/_/g, ' ');
       const keyTokens = keyNorm.split(' ');
 
-      // Compare each search token against each key token
       for (const st of tokens) {
         if (st.length < 3) continue;
 
@@ -374,36 +442,23 @@ EasyAutoFill.FieldMatcher = {
           const maxLen = Math.max(st.length, kt.length);
           const similarity = 1 - dist / maxLen;
 
-          if (similarity > 0.7 && similarity > bestSimilarity) {
+          if (similarity > 0.75 && similarity > bestSimilarity) {
+            const value = profileData[profileKey];
+            if (!this.validateMatch(profileKey, value, { label: tokens.join(' ') })) continue;
+
             bestSimilarity = similarity;
             bestMatch = {
               profileKey,
-              value: profileData[profileKey],
+              value,
               confidence: 0.35 + similarity * 0.3,
               method: 'fuzzy'
             };
           }
         }
       }
-
-      // Also try full string comparison
-      const searchJoined = tokens.join(' ');
-      const dist = this.levenshtein(searchJoined, keyNorm);
-      const maxLen = Math.max(searchJoined.length, keyNorm.length);
-      const similarity = 1 - dist / maxLen;
-
-      if (similarity > 0.6 && similarity > bestSimilarity) {
-        bestSimilarity = similarity;
-        bestMatch = {
-          profileKey,
-          value: profileData[profileKey],
-          confidence: 0.4 + similarity * 0.35,
-          method: 'fuzzy'
-        };
-      }
     }
 
-    return bestMatch && bestMatch.confidence >= 0.5 ? bestMatch : null;
+    return bestMatch && bestMatch.confidence >= 0.55 ? bestMatch : null;
   },
 
   levenshtein(a, b) {
@@ -419,23 +474,21 @@ EasyAutoFill.FieldMatcher = {
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost
-        );
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
       }
     }
     return dp[m][n];
   },
 
-  // === Aggregate matching for all fields ===
+  // === Aggregate matching ===
 
   matchAllFields(fields, profileData) {
-    const results = [];
+    // Enrich profile with derived fields (phone parts, name parts)
+    const enriched = this.preprocessProfile(profileData);
 
+    const results = [];
     for (const field of fields) {
-      const match = this.matchField(field, profileData);
+      const match = this.matchField(field, enriched);
       results.push({
         field,
         match,
@@ -445,35 +498,63 @@ EasyAutoFill.FieldMatcher = {
       });
     }
 
-    // Deduplicate: if multiple fields match the same profile key, keep highest confidence
-    const usedKeys = new Set();
-    const deduped = [];
+    // Dedup: allow reuse of same key if BOTH matches are high confidence
+    // Only force alternative if one is clearly weaker
+    const keyUsage = new Map(); // profileKey → [{ result, confidence }]
 
-    results
-      .sort((a, b) => (b.match?.confidence || 0) - (a.match?.confidence || 0))
-      .forEach(result => {
-        if (result.match && usedKeys.has(result.match.profileKey)) {
-          const alternatives = Object.keys(profileData).filter(k => !usedKeys.has(k));
-          const altMatch = this.findAlternativeMatch(result.field, alternatives, profileData);
-          if (altMatch) {
-            result.match = altMatch;
-            result.status = altMatch.confidence >= 0.75 ? 'matched' : 'ambiguous';
-          } else {
-            result.match = null;
-            result.status = 'unmatched';
-          }
+    // First pass: group by profile key
+    for (const result of results) {
+      if (!result.match) continue;
+      const key = result.match.profileKey;
+      if (!keyUsage.has(key)) keyUsage.set(key, []);
+      keyUsage.get(key).push(result);
+    }
+
+    // Second pass: for keys used multiple times, allow reuse if both are >= 0.80
+    // Otherwise, keep highest confidence and try alternatives for the rest
+    for (const [key, usages] of keyUsage) {
+      if (usages.length <= 1) continue;
+
+      // Sort by confidence descending
+      usages.sort((a, b) => b.match.confidence - a.match.confidence);
+
+      const best = usages[0];
+      for (let i = 1; i < usages.length; i++) {
+        const current = usages[i];
+        // Allow reuse if both matches are strong
+        if (current.match.confidence >= 0.80 && best.match.confidence >= 0.80) {
+          continue; // Both keep the same key
         }
-        if (result.match) usedKeys.add(result.match.profileKey);
-        deduped.push(result);
-      });
 
-    return deduped;
+        // Try to find alternative — but with HIGH threshold
+        const altKeys = Object.keys(enriched).filter(k => {
+          // Check this key isn't the primary match for another high-confidence result
+          const primaryUsers = keyUsage.get(k);
+          if (!primaryUsers) return true;
+          return primaryUsers.every(u => u.match.confidence < current.match.confidence);
+        });
+
+        const altMatch = this.findAlternativeMatch(current.field, altKeys, enriched);
+        if (altMatch && altMatch.confidence >= 0.75) {
+          current.match = altMatch;
+          current.status = altMatch.confidence >= 0.75 ? 'matched' : 'ambiguous';
+        } else {
+          // No good alternative — leave as unmatched rather than forcing a bad match
+          current.match = null;
+          current.status = 'unmatched';
+        }
+      }
+    }
+
+    return results;
   },
 
   findAlternativeMatch(fieldInfo, availableKeys, profileData) {
     const subset = {};
     for (const key of availableKeys) {
-      subset[key] = profileData[key];
+      if (profileData[key] !== undefined) {
+        subset[key] = profileData[key];
+      }
     }
     return this.matchField(fieldInfo, subset);
   }

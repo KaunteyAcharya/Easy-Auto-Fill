@@ -135,9 +135,10 @@
         return;
       }
 
+      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data);
       const response = await sendToContentScript(tab.id, {
         action: 'previewFill',
-        profileData: activeProfile.data
+        profileData: enrichedData
       });
 
       if (!response || response.error) {
@@ -240,9 +241,10 @@
     showLoading(true);
 
     try {
+      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data);
       const response = await sendToContentScript(tab.id, {
         action: 'fillFields',
-        profileData: activeProfile.data
+        profileData: enrichedData
       });
 
       if (response.error) throw new Error(response.error);
