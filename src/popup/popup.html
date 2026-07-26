@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EasyAutoFill</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <img src="../icons/icon-48.png" alt="" class="logo" width="24" height="24">
+        <h1>EasyAutoFill</h1>
+      </div>
+      <button id="settingsBtn" class="icon-btn" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- No Profile State -->
+    <section id="emptyState" class="section empty-state" style="display:none;">
+      <div class="empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <h2>Get Started</h2>
+      <p>Upload your profile to start auto-filling forms.</p>
+      <label class="btn btn-primary upload-btn">
+        <input type="file" id="fileInputEmpty" accept=".json,.md,.txt,.csv,.markdown" hidden>
+        Upload Profile
+      </label>
+      <p class="hint">Supports .md, .txt, .json, .csv</p>
+    </section>
+
+    <!-- Profile Section -->
+    <section id="profileSection" class="section" style="display:none;">
+      <div class="profile-card">
+        <div class="profile-info">
+          <span class="profile-badge">Active</span>
+          <select id="profileSelect" class="profile-select"></select>
+        </div>
+        <div class="profile-actions">
+          <label class="btn btn-sm btn-outline upload-btn">
+            <input type="file" id="fileInputMain" accept=".json,.md,.txt,.csv,.markdown" hidden>
+            + New
+          </label>
+          <button id="deleteProfileBtn" class="btn btn-sm btn-danger" title="Delete profile">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Detected Fields -->
+    <section id="fieldsSection" class="section" style="display:none;">
+      <div class="section-header">
+        <h3>Detected Fields</h3>
+        <span id="fieldCount" class="badge">0</span>
+      </div>
+      <div id="fieldsList" class="fields-list"></div>
+      <div id="noFields" class="no-fields" style="display:none;">
+        <p>No form fields detected on this page.</p>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <section id="actionsSection" class="section" style="display:none;">
+      <button id="fillBtn" class="btn btn-primary btn-block">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        Auto-Fill All Fields
+      </button>
+      <div class="action-row">
+        <button id="previewBtn" class="btn btn-sm btn-outline btn-half">Preview</button>
+        <button id="clearBtn" class="btn btn-sm btn-outline btn-half">Clear</button>
+      </div>
+    </section>
+
+    <!-- Status Messages -->
+    <section id="statusSection" class="section" style="display:none;">
+      <div id="statusMessage" class="status-message"></div>
+    </section>
+
+    <!-- Loading -->
+    <div id="loading" class="loading" style="display:none;">
+      <div class="spinner"></div>
+      <span>Loading...</span>
+    </div>
+
+    <footer class="footer">
+      <span class="footer-text">100% Local &bull; No Tracking</span>
+      <button id="exportBtn" class="link-btn" title="Export profiles">Export</button>
+    </footer>
+  </div>
+
+  <script src="../utils/file-parser.js"></script>
+  <script src="../utils/field-matcher.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

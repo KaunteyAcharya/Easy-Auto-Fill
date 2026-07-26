@@ -1,0 +1,238 @@
+var EasyAutoFill = EasyAutoFill || {};
+
+(function() {
+  'use strict';
+
+  const FieldDetector = EasyAutoFill.FieldDetector;
+  const FieldMatcher = EasyAutoFill.FieldMatcher;
+
+  function setNativeValue(el, value) {
+    const proto = el.tagName === 'TEXTAREA'
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (descriptor && descriptor.set) {
+      descriptor.set.call(el, value);
+    } else {
+      el.value = value;
+    }
+  }
+
+  function dispatchEvents(el) {
+    el.dispatchEvent(new Event('focus', { bubbles: true }));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+  }
+
+  function fillField(el, value, fieldInfo) {
+    if (!el || value === undefined || value === null) return false;
+
+    const tag = el.tagName;
+    const type = (el.type || '').toLowerCase();
+
+    if (tag === 'SELECT') {
+      return fillSelect(el, value);
+    }
+
+    if (type === 'checkbox' || type === 'radio') {
+      return fillCheckboxRadio(el, value);
+    }
+
+    if (el.getAttribute('contenteditable') === 'true') {
+      el.focus();
+      el.textContent = String(value);
+      dispatchEvents(el);
+      return true;
+    }
+
+    if (type === 'date') {
+      return fillDate(el, value);
+    }
+
+    el.focus();
+    setNativeValue(el, String(value));
+    dispatchEvents(el);
+    return true;
+  }
+
+  function fillSelect(el, value) {
+    const valLower = String(value).toLowerCase();
+    let matched = false;
+
+    for (const opt of el.options) {
+      if (opt.value.toLowerCase() === valLower ||
+          opt.textContent.trim().toLowerCase() === valLower ||
+          opt.textContent.trim().toLowerCase().includes(valLower) ||
+          valLower.includes(opt.textContent.trim().toLowerCase())) {
+        el.value = opt.value;
+        matched = true;
+        break;
+      }
+    }
+
+    if (matched) {
+      dispatchEvents(el);
+    }
+    return matched;
+  }
+
+  function fillCheckboxRadio(el, value) {
+    const truthy = ['true', 'yes', '1', 'on'];
+    const shouldCheck = truthy.includes(String(value).toLowerCase()) || value === true;
+    if (el.checked !== shouldCheck) {
+      el.checked = shouldCheck;
+      dispatchEvents(el);
+    }
+    return true;
+  }
+
+  function fillDate(el, value) {
+    const formats = [
+      /^(\d{4})-(\d{2})-(\d{2})$/,
+      /^(\d{2})\/(\d{2})\/(\d{4})$/,
+      /^(\d{2})-(\d{2})-(\d{4})$/,
+    ];
+
+    let dateStr = String(value);
+    for (const fmt of formats) {
+      const m = dateStr.match(fmt);
+      if (m) {
+        if (m[3] && m[3].length === 4) {
+          dateStr = m[3] + '-' + m[1] + '-' + m[2];
+        }
+        break;
+      }
+    }
+
+    el.focus();
+    setNativeValue(el, dateStr);
+    dispatchEvents(el);
+    return true;
+  }
+
+  function highlightField(el, status) {
+    el.classList.remove('eaf-field-matched', 'eaf-field-unmatched', 'eaf-field-filled', 'eaf-field-error');
+    if (status === 'filled') {
+      el.classList.add('eaf-field-filled');
+    } else if (status === 'error') {
+      el.classList.add('eaf-field-error');
+    } else if (status === 'matched') {
+      el.classList.add('eaf-field-matched');
+    } else if (status === 'unmatched') {
+      el.classList.add('eaf-field-unmatched');
+    }
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.eaf-field-matched, .eaf-field-unmatched, .eaf-field-filled, .eaf-field-error, .eaf-field-highlight')
+      .forEach(el => {
+        el.classList.remove('eaf-field-matched', 'eaf-field-unmatched', 'eaf-field-filled', 'eaf-field-error', 'eaf-field-highlight');
+      });
+    document.querySelectorAll('.eaf-badge').forEach(b => b.remove());
+  }
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    switch (message.action) {
+
+      case 'detectFields': {
+        const fields = FieldDetector.detectFields();
+        sendResponse({ fields });
+        break;
+      }
+
+      case 'previewFill': {
+        clearHighlights();
+        const fields = FieldDetector.detectFields();
+        const matches = FieldMatcher.matchAllFields(fields, message.profileData);
+
+        for (const result of matches) {
+          const el = FieldDetector.getElementByFieldInfo(result.field);
+          if (!el) continue;
+          highlightField(el, result.match ? 'matched' : 'unmatched');
+        }
+
+        sendResponse({ matches: matches.map(r => ({
+          field: {
+            label: r.field.label,
+            name: r.field.name,
+            id: r.field.id,
+            type: r.field.type,
+            placeholder: r.field.placeholder,
+            xpath: r.field.xpath
+          },
+          match: r.match,
+          status: r.status
+        }))});
+        break;
+      }
+
+      case 'fillFields': {
+        clearHighlights();
+        const fields = FieldDetector.detectFields();
+        const matches = FieldMatcher.matchAllFields(fields, message.profileData);
+        const overrides = message.overrides || {};
+
+        let filled = 0;
+        let failed = 0;
+        const results = [];
+
+        for (const result of matches) {
+          const el = FieldDetector.getElementByFieldInfo(result.field);
+          if (!el) continue;
+
+          const fieldId = result.field.id || result.field.name || result.field.xpath;
+          const override = overrides[fieldId];
+
+          let value = override !== undefined
+            ? message.profileData[override]
+            : (result.match ? result.match.value : null);
+
+          if (value === null || value === undefined) {
+            highlightField(el, 'unmatched');
+            results.push({ field: result.field.label || result.field.name, status: 'skipped' });
+            continue;
+          }
+
+          const success = fillField(el, value, result.field);
+          if (success) {
+            filled++;
+            highlightField(el, 'filled');
+            results.push({ field: result.field.label || result.field.name, status: 'filled', value: String(value).substring(0, 50) });
+          } else {
+            failed++;
+            highlightField(el, 'error');
+            results.push({ field: result.field.label || result.field.name, status: 'failed' });
+          }
+        }
+
+        sendResponse({ filled, failed, total: matches.length, results });
+        break;
+      }
+
+      case 'clearHighlights': {
+        clearHighlights();
+        sendResponse({ success: true });
+        break;
+      }
+
+      case 'fillSingleField': {
+        const el = FieldDetector.getElementByFieldInfo(message.fieldInfo);
+        if (el) {
+          const success = fillField(el, message.value, message.fieldInfo);
+          highlightField(el, success ? 'filled' : 'error');
+          sendResponse({ success });
+        } else {
+          sendResponse({ success: false, error: 'Element not found' });
+        }
+        break;
+      }
+
+      default:
+        sendResponse({ error: 'Unknown action: ' + message.action });
+    }
+
+    return true;
+  });
+
+})();
