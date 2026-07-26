@@ -10,11 +10,43 @@ EasyAutoFill.FieldDetector = {
     const fields = [];
     const seen = new Set();
 
-    const inputs = document.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+    this.searchDocument(document, fields, seen);
+
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) this.searchDocument(iframeDoc, fields, seen);
+      } catch (e) {
+        // Cross-origin iframe — handled by all_frames in manifest
+      }
+    }
+
+    return fields;
+  },
+
+  isVisible(el) {
+    if (el.type === 'hidden') return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if (el.offsetWidth === 0 && el.offsetHeight === 0) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return false;
+    }
+    return true;
+  },
+
+  searchDocument(doc, fields, seen) {
+    let inputs;
+    try {
+      inputs = doc.querySelectorAll('input, textarea, select, [contenteditable="true"]');
+    } catch (e) {
+      return;
+    }
 
     for (const el of inputs) {
       if (el.tagName === 'INPUT' && this.IGNORED_TYPES.has(el.type)) continue;
-      if (el.offsetParent === null && el.type !== 'hidden') continue;
+      if (!this.isVisible(el)) continue;
       if (el.disabled || el.readOnly) continue;
 
       const uid = this.elementId(el);
@@ -24,8 +56,6 @@ EasyAutoFill.FieldDetector = {
       const info = this.getFieldInfo(el);
       if (info) fields.push(info);
     }
-
-    return fields;
   },
 
   getFieldInfo(el) {
@@ -48,13 +78,14 @@ EasyAutoFill.FieldDetector = {
       options: el.tagName === 'SELECT' ? this.getSelectOptions(el) : [],
       rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
       xpath: this.getXPath(el),
-      index: Array.from(document.querySelectorAll('input, textarea, select')).indexOf(el)
+      index: Array.from((el.ownerDocument || document).querySelectorAll('input, textarea, select')).indexOf(el)
     };
   },
 
   findLabel(el) {
+    const doc = el.ownerDocument || document;
     if (el.id) {
-      const labelEl = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+      const labelEl = doc.querySelector('label[for="' + CSS.escape(el.id) + '"]');
       if (labelEl) return labelEl.textContent.trim();
     }
 
@@ -145,22 +176,35 @@ EasyAutoFill.FieldDetector = {
   },
 
   getElementByFieldInfo(fieldInfo) {
-    if (fieldInfo.id) {
-      const el = document.getElementById(fieldInfo.id);
-      if (el) return el;
+    const docs = [document];
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) docs.push(iframeDoc);
+      } catch (e) {}
     }
 
-    if (fieldInfo.name) {
-      const el = document.querySelector('[name="' + CSS.escape(fieldInfo.name) + '"]');
-      if (el) return el;
-    }
+    for (const doc of docs) {
+      if (fieldInfo.id) {
+        const el = doc.getElementById(fieldInfo.id);
+        if (el) return el;
+      }
 
-    if (fieldInfo.xpath) {
-      const result = document.evaluate(
-        fieldInfo.xpath, document, null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE, null
-      );
-      if (result.singleNodeValue) return result.singleNodeValue;
+      if (fieldInfo.name) {
+        const el = doc.querySelector('[name="' + CSS.escape(fieldInfo.name) + '"]');
+        if (el) return el;
+      }
+
+      if (fieldInfo.xpath) {
+        try {
+          const result = doc.evaluate(
+            fieldInfo.xpath, doc, null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE, null
+          );
+          if (result.singleNodeValue) return result.singleNodeValue;
+        } catch (e) {}
+      }
     }
 
     return null;
