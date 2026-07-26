@@ -105,10 +105,12 @@ EasyAutoFill.FileParser = {
       if (boldKV) {
         const key = boldKV[1].trim();
         const value = boldKV[2].trim();
+        const normKey = this.normalizeKey(key);
         if (currentH3Obj) {
-          currentH3Obj[this.normalizeKey(key)] = value;
+          currentH3Obj[normKey] = value;
         }
-        data[this.normalizeKey(key)] = value;
+        // Only set in flat data if not already set (keep first/most-recent value)
+        if (!data[normKey]) data[normKey] = value;
         if (currentH2 && !Array.isArray(sections[currentH2])) {
           sections[currentH2][key] = value;
         }
@@ -304,7 +306,7 @@ EasyAutoFill.FileParser = {
       }).join('\n\n');
       if (!data.work_experience) data.work_experience = workText;
 
-      const latest = entries[entries.length - 1] || entries[0];
+      const latest = entries[0];
       if (latest) {
         if (!data.current_title && latest.title) data.current_title = latest.title;
         if (!data.current_company && latest.company) data.current_company = latest.company;

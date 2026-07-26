@@ -171,12 +171,11 @@ EasyAutoFill.FieldMatcher = {
   matchField(fieldInfo, profileData) {
     if (!profileData || !fieldInfo) return null;
 
-    // Skip checkboxes and radios — they need special handling, not text matching
     if (fieldInfo.type === 'checkbox' || fieldInfo.type === 'radio') {
       return null;
     }
 
-    // 1. Autocomplete attribute
+    // 1. Autocomplete attribute (browser standard, most reliable)
     const autoMatch = this.matchByAutocomplete(fieldInfo, profileData);
     if (autoMatch) return autoMatch;
 
@@ -184,33 +183,40 @@ EasyAutoFill.FieldMatcher = {
     const typeMatch = this.matchByInputType(fieldInfo, profileData);
     if (typeMatch) return typeMatch;
 
-    const searchText = this.buildSearchText(fieldInfo);
-    const tokens = this.tokenize(searchText);
+    // 3. Try matching on LABEL + PLACEHOLDER only first (clean human-readable text)
+    const primaryText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel].join(' '));
+    const primaryTokens = this.tokenize(primaryText);
 
-    // 3. Semantic keyword matching
+    if (primaryTokens.length > 0) {
+      const labelMatch = this.runSemanticPipeline(primaryTokens, primaryText, profileData);
+      if (labelMatch && labelMatch.confidence >= 0.70) return labelMatch;
+    }
+
+    // 4. Fall back to including name/id attributes (often contain framework junk)
+    const fullText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id].join(' '));
+    const fullTokens = this.tokenize(fullText);
+
+    const fullMatch = this.runSemanticPipeline(fullTokens, fullText, profileData);
+    if (fullMatch) return fullMatch;
+
+    return null;
+  },
+
+  runSemanticPipeline(tokens, searchText, profileData) {
     const semanticMatch = this.matchBySemantic(tokens, searchText, profileData);
     if (semanticMatch) return semanticMatch;
 
-    // 4. Token overlap with profile keys
     const tokenMatch = this.matchByTokenOverlap(tokens, profileData);
     if (tokenMatch) return tokenMatch;
 
-    // 5. Fuzzy matching
     const fuzzyMatch = this.matchByFuzzy(tokens, profileData);
     if (fuzzyMatch) return fuzzyMatch;
 
     return null;
   },
 
-  buildSearchText(fieldInfo) {
-    const parts = [
-      fieldInfo.label || '',
-      fieldInfo.name || '',
-      fieldInfo.id || '',
-      fieldInfo.placeholder || '',
-      fieldInfo.ariaLabel || '',
-    ];
-    return parts.join(' ').toLowerCase()
+  cleanText(text) {
+    return text.toLowerCase()
       .replace(/\(s\)/gi, 's')
       .replace(/\*/g, '')
       .replace(/[^a-z0-9\s]/g, ' ')
@@ -233,7 +239,7 @@ EasyAutoFill.FieldMatcher = {
     if (isURL && this.NON_URL_FIELDS.has(profileKey)) return false;
 
     // Non-URL values should not go into URL-expected fields based on field label
-    const searchText = this.buildSearchText(fieldInfo);
+    const searchText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id].join(' '));
     if (!isURL && this.URL_FIELDS.has(profileKey)) {
       // This is fine — we matched a URL field key but the value isn't a URL
       // Only block if the field clearly expects a URL
