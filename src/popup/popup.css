@@ -136,6 +136,8 @@ body {
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-primary);
+  border-radius: 16px;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -144,6 +146,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100px;
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 /* === Header === */
@@ -795,19 +799,6 @@ body {
   color: var(--text-primary);
 }
 
-/* === Settings Panel === */
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.setting-row:last-of-type {
-  margin-bottom: 0;
-}
-
 .setting-label {
   font-size: 12px;
   font-weight: 500;
@@ -821,22 +812,6 @@ body {
   gap: 8px;
   flex: 1;
   justify-content: flex-end;
-}
-
-.setting-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  font-size: 12px;
-  font-family: inherit;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.setting-select:focus {
-  outline: none;
-  border-color: var(--text-secondary);
 }
 
 /* === Confidence Section === */
@@ -914,9 +889,18 @@ body {
   border-color: var(--text-secondary);
 }
 
-/* === Scrollbar === */
+/* === Scrollbar (thin overlay) === */
+.fields-list {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.fields-list:hover {
+  scrollbar-color: var(--bg-tertiary) transparent;
+}
+
 .fields-list::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 
 .fields-list::-webkit-scrollbar-track {
@@ -924,10 +908,15 @@ body {
 }
 
 .fields-list::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
-  border-radius: 2px;
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.2s;
 }
 
-.fields-list::-webkit-scrollbar-thumb:hover {
+.fields-list:hover::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+}
+
+.fields-list:hover::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }

@@ -80,7 +80,6 @@
     $('#previewBtn').addEventListener('click', handlePreview);
     $('#clearBtn').addEventListener('click', handleClear);
     $('#exportBtn').addEventListener('click', handleExport);
-    $('#settingsBtn').addEventListener('click', toggleSettings);
     $('#suggestDismissBtn').addEventListener('click', dismissSuggest);
     $('#suggestUseBtn').addEventListener('click', applySuggest);
 
@@ -716,11 +715,6 @@
       URL.revokeObjectURL(url);
       showStatus('Profiles exported!', 'success');
     }
-  }
-
-  function toggleSettings() {
-    const panel = $('#settingsPanel');
-    if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
   }
 
   // === Helpers ===
