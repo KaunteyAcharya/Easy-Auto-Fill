@@ -894,6 +894,46 @@ body {
   border-color: var(--text-secondary);
 }
 
+.correction-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 4px 0;
+}
+
+.correction-manual-row {
+  display: flex;
+  gap: 6px;
+}
+
+.correction-input {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.correction-input:focus {
+  border-color: var(--text-secondary);
+}
+
+.correction-input-key {
+  flex: 2;
+  min-width: 0;
+}
+
+.correction-input-value {
+  flex: 3;
+  min-width: 0;
+}
+
+.correction-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 /* === Scrollbar (thin, blends with UI) === */
 .fields-list {
   scrollbar-width: thin;

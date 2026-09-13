@@ -585,6 +585,82 @@
     });
     menu.appendChild(saveBtn);
 
+    // --- Manual input section ---
+    const divider = document.createElement('div');
+    divider.className = 'correction-divider';
+    menu.appendChild(divider);
+
+    const manualTitle = document.createElement('div');
+    manualTitle.className = 'correction-title';
+    manualTitle.textContent = 'Or add new value to profile:';
+    menu.appendChild(manualTitle);
+
+    const manualRow = document.createElement('div');
+    manualRow.className = 'correction-manual-row';
+
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.className = 'correction-input correction-input-key';
+    keyInput.placeholder = 'Field name (e.g. specialization)';
+    // Pre-fill with the detected field's label/name as a suggestion
+    const suggestedKey = (result.field.label || result.field.name || result.field.id || '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (suggestedKey && !keys.includes(suggestedKey)) {
+      keyInput.value = suggestedKey;
+    }
+    manualRow.appendChild(keyInput);
+
+    const valInput = document.createElement('input');
+    valInput.type = 'text';
+    valInput.className = 'correction-input correction-input-value';
+    valInput.placeholder = 'Value';
+    manualRow.appendChild(valInput);
+
+    menu.appendChild(manualRow);
+
+    const manualSaveBtn = document.createElement('button');
+    manualSaveBtn.className = 'btn btn-sm btn-primary';
+    manualSaveBtn.textContent = 'Save to Profile';
+    manualSaveBtn.addEventListener('click', async () => {
+      const fieldKey = keyInput.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const fieldValue = valInput.value.trim();
+
+      if (!fieldKey) { keyInput.focus(); return; }
+      if (!fieldValue) { valInput.focus(); return; }
+
+      // Save the new field to the active profile
+      const response = await sendToBackground({
+        action: 'updateProfileField',
+        id: activeProfile.id,
+        fieldKey: fieldKey,
+        fieldValue: fieldValue
+      });
+
+      if (response.error) {
+        showStatus('Error: ' + response.error, 'error');
+        return;
+      }
+
+      // Update local reference
+      activeProfile = response.profile;
+
+      // Also save domain mapping so this field maps to the new key
+      const fieldId = result.field.id || result.field.name || result.field.xpath;
+      const tab = await getActiveTab();
+      if (tab) {
+        const domain = new URL(tab.url).hostname;
+        const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
+        const mapping = mappingResponse.mapping || {};
+        mapping[fieldId] = fieldKey;
+        await sendToBackground({ action: 'saveDomainMapping', domain, mapping });
+      }
+
+      showStatus('"' + fieldKey.replace(/_/g, ' ') + '" saved to profile', 'success');
+      menu.remove();
+      await detectCurrentPageFields();
+    });
+    menu.appendChild(manualSaveBtn);
+
     div.parentElement.insertBefore(menu, div.nextSibling);
   }
 

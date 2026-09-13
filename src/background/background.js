@@ -58,6 +58,14 @@ async function handleMessage(message) {
       return { success: true, profile: saved };
     }
 
+    case 'updateProfileField': {
+      const prof = await DB.getProfile(message.id);
+      if (!prof) return { error: 'Profile not found' };
+      prof.data[message.fieldKey] = message.fieldValue;
+      const saved = await DB.saveProfile(prof);
+      return { success: true, profile: saved };
+    }
+
     case 'saveDomainMapping': {
       await DB.saveDomainMapping(message.domain, message.mapping);
       return { success: true };
