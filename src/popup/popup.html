@@ -20,6 +20,16 @@
       </button>
     </header>
 
+    <!-- Auto-Suggest Banner -->
+    <section id="autoSuggest" class="section auto-suggest" style="display:none;">
+      <div class="suggest-content">
+        <span id="suggestIcon" class="suggest-icon">💼</span>
+        <span id="suggestText" class="suggest-text">Recommended: <strong id="suggestCategory">Job</strong> profile</span>
+        <button id="suggestUseBtn" class="btn btn-sm btn-primary">Use</button>
+        <button id="suggestDismissBtn" class="suggest-dismiss" title="Dismiss">✕</button>
+      </div>
+    </section>
+
     <!-- No Profile State -->
     <section id="emptyState" class="section empty-state" style="display:none;">
       <div class="empty-icon">
@@ -33,27 +43,25 @@
         <input type="file" id="fileInputEmpty" accept=".json,.md,.txt,.csv,.markdown" hidden>
         Upload Profile
       </label>
-      <p class="hint">Supports .md, .txt, .json, .csv</p>
+      <p class="hint">Supports .md, .txt, .json, .csv — upload separate files for Job, Academic, Government, etc.</p>
+    </section>
+
+    <!-- Upload Category Picker (shown during upload) -->
+    <section id="categoryPicker" class="section" style="display:none;">
+      <div class="section-header">
+        <h3>Choose Profile Type</h3>
+      </div>
+      <div id="categoryChips" class="category-chips"></div>
     </section>
 
     <!-- Profile Section -->
     <section id="profileSection" class="section" style="display:none;">
-      <div class="profile-card">
-        <div class="profile-info">
-          <span class="profile-badge">Active</span>
-          <select id="profileSelect" class="profile-select"></select>
-        </div>
-        <div class="profile-actions">
-          <label class="btn btn-sm btn-outline upload-btn">
-            <input type="file" id="fileInputMain" accept=".json,.md,.txt,.csv,.markdown" hidden>
-            + New
-          </label>
-          <button id="deleteProfileBtn" class="btn btn-sm btn-danger" title="Delete profile">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-          </button>
-        </div>
+      <div id="profileCards" class="profile-cards"></div>
+      <div class="profile-actions-row">
+        <label class="btn btn-sm btn-outline upload-btn">
+          <input type="file" id="fileInputMain" accept=".json,.md,.txt,.csv,.markdown" hidden>
+          + Add Profile
+        </label>
       </div>
     </section>
 

@@ -228,6 +228,7 @@ var EasyAutoFill = EasyAutoFill || {};
         const fields = FieldDetector.detectFields();
         const matches = FieldMatcher.matchAllFields(fields, message.profileData, message.sections);
         const overrides = message.overrides || {};
+        const skipFields = new Set(message.profileData._skipFields || []);
 
         let filled = 0;
         let failed = 0;
@@ -238,6 +239,14 @@ var EasyAutoFill = EasyAutoFill || {};
           if (!el) continue;
 
           const fieldId = result.field.id || result.field.name || result.field.xpath;
+
+          // Skip fields marked by sensitive field filter
+          if (skipFields.has(fieldId)) {
+            highlightField(el, 'unmatched');
+            results.push({ field: result.field.label || result.field.name, status: 'skipped_sensitive' });
+            continue;
+          }
+
           const override = overrides[fieldId];
 
           let value = override !== undefined

@@ -34,23 +34,44 @@ EasyAutoFill.FieldMatcher = {
   },
 
   SEMANTIC_MAP: {
+    // === Personal / Identity ===
     name:           ['name', 'full name', 'your name', 'applicant name', 'candidate name', 'legal name', 'complete name', 'display name'],
     first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'first', 'fname', 'local given name', 'local given names'],
     middle_name:    ['middle name', 'middle initial', 'middle', 'second name'],
     last_name:      ['last name', 'family name', 'surname', 'last', 'lname', 'local family name'],
-    prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific'],
+    prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific', 'title'],
     nickname:       ['nickname', 'preferred name', 'known as', 'goes by', 'alias'],
     gender:         ['gender', 'sex', 'male female', 'identity'],
     date_of_birth:  ['date of birth', 'dob', 'birthday', 'birth date', 'born on'],
+    place_of_birth: ['place of birth', 'birth place', 'city of birth', 'born in', 'birth city'],
     nationality:    ['nationality', 'citizenship', 'national origin'],
+    marital_status: ['marital status', 'married single', 'relationship status'],
+    blood_group:    ['blood group', 'blood type'],
+    religion:       ['religion', 'faith', 'religious affiliation'],
+    category:       ['category', 'caste', 'social category', 'reservation category', 'obc sc st general'],
 
+    // === Family ===
+    father_name:    ['father name', 'fathers name', 'father s name', 'name of father', 'father full name', 'paternal name'],
+    mother_name:    ['mother name', 'mothers name', 'mother s name', 'name of mother', 'mother full name', 'maternal name'],
+    spouse_name:    ['spouse name', 'husband name', 'wife name', 'partner name', 'spouse s name'],
+    guardian_name:  ['guardian name', 'guardian s name', 'name of guardian', 'local guardian'],
+
+    // === Contact ===
     email:          ['email', 'e mail', 'email address', 'mail', 'your email', 'contact email', 'primary email', 'work email', 'personal email'],
     phone:          ['phone', 'telephone', 'tel', 'mobile', 'cell', 'contact number', 'phone number', 'mobile number', 'cellular', 'mobile phone', 'cell phone', 'primary phone', 'home phone', 'work phone', 'daytime phone'],
     phone_number:   ['phone number', 'mobile number', 'telephone number', 'contact number', 'cell number'],
     phone_country_code: ['country phone code', 'country code', 'phone code', 'dialing code', 'isd code', 'calling code'],
     phone_extension:['phone extension', 'ext', 'extension', 'telephone extension'],
+    alternate_phone:['alternate phone', 'secondary phone', 'other phone', 'landline', 'alternate contact', 'alternate mobile'],
+    alternate_email:['alternate email', 'secondary email', 'other email', 'backup email'],
+    emergency_contact_name:  ['emergency contact', 'emergency contact name', 'emergency person', 'in case of emergency'],
+    emergency_contact_phone: ['emergency phone', 'emergency contact number', 'emergency number', 'emergency tel'],
+    emergency_contact_relation: ['emergency relation', 'relationship to emergency', 'emergency contact relationship'],
 
-    address:        ['address', 'street', 'street address', 'address line 1', 'address line1', 'mailing address', 'residential address', 'home address', 'current address', 'permanent address'],
+    // === Address ===
+    address:        ['address', 'street', 'street address', 'address line 1', 'address line1', 'mailing address', 'residential address', 'home address', 'current address'],
+    permanent_address: ['permanent address', 'permanent residential address', 'home town address'],
+    correspondence_address: ['correspondence address', 'communication address', 'mailing address', 'postal address'],
     address_line_2: ['address line 2', 'address line2', 'apt', 'apartment', 'suite', 'unit', 'floor', 'building'],
     city:           ['city', 'town', 'municipality', 'locality', 'village', 'district', 'metro'],
     state:          ['state', 'province', 'region', 'county', 'territory', 'prefecture'],
@@ -58,9 +79,29 @@ EasyAutoFill.FieldMatcher = {
     country:        ['country', 'nation', 'country region', 'location country'],
     location:       ['location', 'current location', 'city state', 'where are you based', 'based in'],
 
+    // === Identity Documents (SENSITIVE) ===
+    aadhaar:        ['aadhaar', 'aadhar', 'aadhaar number', 'aadhar number', 'uid', 'aadhaar card', 'uidai'],
+    pan:            ['pan', 'pan number', 'pan card', 'permanent account number', 'income tax pan'],
+    passport_number:['passport', 'passport number', 'passport no', 'travel document number'],
+    passport_expiry:['passport expiry', 'passport expiry date', 'passport valid till', 'passport validity'],
+    passport_issue_date: ['passport issue date', 'date of issue', 'passport issued on'],
+    passport_issue_place:['passport issue place', 'place of issue', 'issuing authority', 'issued at'],
+    voter_id:       ['voter id', 'voter card', 'election id', 'epic number', 'voter identity'],
+    driving_license:['driving license', 'drivers license', 'dl number', 'driving licence', 'license number'],
+    ssn:            ['ssn', 'social security', 'social security number', 'social insurance number', 'sin'],
+
+    // === Financial (SENSITIVE) ===
+    bank_name:      ['bank name', 'name of bank', 'bank'],
+    account_number: ['account number', 'bank account', 'account no', 'a c number', 'savings account'],
+    ifsc_code:      ['ifsc', 'ifsc code', 'bank ifsc', 'branch code', 'routing number', 'sort code', 'swift code'],
+    annual_income:  ['annual income', 'yearly income', 'total income', 'income per annum', 'gross income'],
+    income_source:  ['income source', 'source of income', 'source of funds', 'occupation income'],
+
+    // === Work ===
     company:        ['company', 'employer', 'organization', 'organisation', 'current company', 'company name', 'current employer', 'firm', 'workplace', 'employer name', 'most recent employer'],
     current_title:  ['job title', 'position', 'role', 'designation', 'current title', 'current role', 'current position', 'position title', 'professional title'],
     current_role:   ['current role', 'present role', 'latest role', 'most recent role'],
+    occupation:     ['occupation', 'profession', 'type of employment', 'employment type', 'nature of work'],
     work_experience:['experience', 'work experience', 'professional experience', 'employment history', 'work history', 'career history', 'relevant experience'],
     experience_years:['years of experience', 'experience years', 'total experience', 'how many years', 'yoe'],
     professional_summary: ['summary', 'professional summary', 'about', 'about me', 'bio', 'biography', 'objective', 'profile summary', 'career objective', 'personal statement', 'career summary', 'tell us about yourself', 'describe yourself', 'professional profile', 'executive summary', 'overview'],
@@ -70,13 +111,38 @@ EasyAutoFill.FieldMatcher = {
     end_date:       ['to', 'end date', 'to date', 'date to', 'ended', 'leaving date', 'end month', 'last day'],
     notice_period:  ['notice period', 'how soon can you start', 'earliest start date', 'when can you start', 'when can you join'],
     availability:   ['availability', 'available from', 'available date', 'earliest start', 'when available', 'date available'],
+    salary:         ['salary', 'expected salary', 'salary expectation', 'compensation', 'desired salary', 'expected ctc', 'current ctc', 'pay rate', 'hourly rate'],
 
+    // === Education ===
     education:      ['education', 'qualification', 'academic background', 'educational background', 'educational history'],
     degree:         ['degree', 'highest degree', 'qualification name', 'level of education', 'education level', 'field of study', 'course', 'program', 'major'],
     university:     ['university', 'college', 'school', 'institution', 'alma mater', 'school name', 'college name', 'university name'],
     graduation_year:['graduation year', 'grad year', 'year of graduation', 'graduation date', 'completion year'],
     gpa:            ['gpa', 'grade', 'cgpa', 'marks', 'score', 'percentage', 'grade point'],
+    board:          ['board', 'education board', 'cbse', 'icse', 'state board', 'board of education'],
+    medium_of_instruction: ['medium of instruction', 'medium', 'language of instruction'],
+    enrollment_number: ['enrollment number', 'enrollment no', 'roll number', 'roll no', 'student id', 'registration number', 'prn'],
 
+    // === References ===
+    reference_1_name:  ['reference name', 'referee name', 'reference 1 name', 'first reference'],
+    reference_1_phone: ['reference phone', 'referee phone', 'reference 1 phone', 'reference contact'],
+    reference_1_email: ['reference email', 'referee email', 'reference 1 email'],
+    reference_1_relation: ['reference relationship', 'referee relationship', 'relation to reference', 'how do you know'],
+    reference_2_name:  ['reference 2 name', 'second reference', 'another reference'],
+    reference_2_phone: ['reference 2 phone', 'second reference phone'],
+    reference_2_email: ['reference 2 email', 'second reference email'],
+
+    // === Rental / Property ===
+    current_rent:      ['current rent', 'monthly rent', 'rent amount', 'how much rent'],
+    landlord_name:     ['landlord name', 'property owner', 'owner name', 'lessor name'],
+    landlord_phone:    ['landlord phone', 'landlord contact', 'owner phone', 'owner contact'],
+    previous_address:  ['previous address', 'prior address', 'last address', 'former address'],
+    move_in_date:      ['move in date', 'desired move in', 'when to move', 'lease start'],
+    lease_duration:    ['lease duration', 'lease term', 'how long', 'tenancy period'],
+    number_of_occupants: ['number of occupants', 'how many people', 'occupants', 'tenants', 'household size'],
+    pets:              ['pets', 'do you have pets', 'pet details', 'animals'],
+
+    // === Links ===
     linkedin:       ['linkedin', 'linkedin url', 'linkedin profile', 'linked in'],
     github:         ['github', 'github url', 'github profile', 'git hub'],
     website:        ['website', 'portfolio', 'personal website', 'homepage', 'portfolio url', 'blog', 'personal site', 'online portfolio'],
@@ -85,20 +151,23 @@ EasyAutoFill.FieldMatcher = {
     facebook:       ['facebook', 'facebook url', 'facebook profile', 'fb'],
     instagram:      ['instagram', 'instagram url', 'ig'],
 
+    // === Skills & Misc ===
     skills:         ['skills', 'technical skills', 'key skills', 'competencies', 'expertise', 'technologies', 'tech stack', 'core skills', 'proficiencies'],
     technical_skills:['technical skills', 'tech skills', 'it skills', 'programming skills', 'hard skills'],
     programming_languages: ['programming languages', 'coding languages', 'tech languages'],
     tools:          ['tools', 'software', 'applications', 'platforms', 'frameworks'],
     certifications: ['certifications', 'certificates', 'licenses', 'accreditations'],
-
-    salary:         ['salary', 'expected salary', 'salary expectation', 'compensation', 'desired salary', 'expected ctc', 'current ctc', 'pay rate', 'hourly rate'],
     visa:           ['visa', 'work authorization', 'visa status', 'sponsorship', 'right to work', 'work permit', 'authorized to work', 'require sponsorship'],
-
     references:     ['references', 'referees', 'reference contact', 'professional references'],
     languages:      ['languages', 'language skills', 'spoken languages', 'language proficiency', 'languages spoken'],
     publications:   ['publications', 'research papers', 'papers', 'journal articles', 'published work'],
     awards:         ['awards', 'honors', 'achievements', 'recognitions', 'accomplishments', 'scholarships'],
     hobbies:        ['hobbies', 'interests', 'extracurricular', 'activities', 'pastimes', 'personal interests'],
+
+    // === Nominee (Insurance/Banking) ===
+    nominee_name:   ['nominee', 'nominee name', 'beneficiary', 'beneficiary name'],
+    nominee_relation: ['nominee relation', 'relationship with nominee', 'nominee relationship', 'beneficiary relation'],
+    guarantor_name: ['guarantor', 'guarantor name', 'co applicant', 'co signer'],
   },
 
   TYPE_MAP: {
@@ -133,6 +202,45 @@ EasyAutoFill.FieldMatcher = {
     'hobby':     ['interest', 'pastime', 'activity'],
     'publication':['paper', 'article', 'journal', 'research'],
     'language':  ['linguistic', 'tongue'],
+  },
+
+  // Sensitive fields that require user confirmation before filling
+  SENSITIVE_FIELDS: new Set([
+    'aadhaar', 'pan', 'passport_number', 'passport_expiry', 'passport_issue_date', 'passport_issue_place',
+    'voter_id', 'driving_license', 'ssn',
+    'bank_name', 'account_number', 'ifsc_code', 'annual_income',
+  ]),
+
+  // Check if a profile key is a sensitive field
+  isSensitiveField(profileKey) {
+    return this.SENSITIVE_FIELDS.has(profileKey);
+  },
+
+  // Profile category definitions
+  PROFILE_CATEGORIES: {
+    job:        { label: 'Job',        color: '#4F46E5', icon: '💼' },
+    academic:   { label: 'Academic',   color: '#059669', icon: '🎓' },
+    government: { label: 'Government', color: '#dc2626', icon: '🏛️' },
+    personal:   { label: 'Personal',   color: '#d97706', icon: '👤' },
+    rental:     { label: 'Rental',     color: '#7c3aed', icon: '🏠' },
+    general:    { label: 'General',    color: '#6b7280', icon: '📋' },
+  },
+
+  // Domain patterns → suggested profile category
+  DOMAIN_CATEGORY_MAP: [
+    { pattern: /\.gov\b|\.nic\.in|\.gob\b|\.govt\b/i,                     category: 'government' },
+    { pattern: /\.edu\b|\.ac\.\w+|university|college|school|admission/i,   category: 'academic' },
+    { pattern: /rent|lease|housing|zillow|trulia|apartments|realestate/i,   category: 'rental' },
+    { pattern: /linkedin|indeed|glassdoor|monster|naukri|career|jobs|hiring|workday|greenhouse|lever\.co|bamboohr/i, category: 'job' },
+  ],
+
+  // Suggest a profile category based on the current site domain/URL
+  suggestCategory(url) {
+    if (!url) return null;
+    for (const rule of this.DOMAIN_CATEGORY_MAP) {
+      if (rule.pattern.test(url)) return rule.category;
+    }
+    return null;
   },
 
   // Fields that should ONLY contain URL values

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "EasyAutoFill",
-  "version": "1.1.0",
-  "description": "Auto-fill any form with your profile data. Free, open-source, 100% local.",
+  "version": "1.2.0",
+  "description": "Auto-fill any form with your profile data. Multi-profile support for Job, Academic, Government & more. Free, open-source, 100% local.",
   "permissions": ["storage", "activeTab"],
   "action": {
     "default_popup": "src/popup/popup.html",
