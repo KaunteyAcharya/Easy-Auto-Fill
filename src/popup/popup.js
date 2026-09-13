@@ -11,6 +11,7 @@
   let pendingFile = null;
   let suggestedCategory = null;
   let confirmedSensitiveFields = new Set();
+  let dropdownOpen = false;
 
   // === Initialization ===
 
@@ -31,8 +32,7 @@
     const response = await sendToBackground({ action: 'getSetting', key: 'theme' });
     const theme = response.value || 'system';
     applyTheme(theme);
-    const select = $('#themeSelect');
-    if (select) select.value = theme;
+    updateThemeToggle(theme);
   }
 
   function applyTheme(theme) {
@@ -43,6 +43,13 @@
     } else {
       document.documentElement.removeAttribute('data-theme');
     }
+  }
+
+  function updateThemeToggle(activeTheme) {
+    const btns = $$('.theme-toggle-btn');
+    btns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === activeTheme);
+    });
   }
 
   async function loadSettings() {
@@ -73,11 +80,15 @@
       menuBtn.addEventListener('click', handleExport);
     }
 
-    const themeSelect = $('#themeSelect');
-    if (themeSelect) {
-      themeSelect.addEventListener('change', async function() {
-        const theme = this.value;
+    // Theme toggle buttons
+    const themeToggle = $('#themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.theme-toggle-btn');
+        if (!btn) return;
+        const theme = btn.dataset.theme;
         applyTheme(theme);
+        updateThemeToggle(theme);
         await sendToBackground({ action: 'setSetting', key: 'theme', value: theme });
       });
     }
@@ -94,6 +105,14 @@
         await detectCurrentPageFields();
       });
     }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (dropdownOpen && !e.target.closest('.profile-dropdown')) {
+        dropdownOpen = false;
+        renderProfileDropdown();
+      }
+    });
   }
 
   // === Auto-Suggest ===
@@ -114,7 +133,6 @@
       const matchingProfile = allProfiles.find(p => p.category === category);
       if (!matchingProfile) { hideSection('autoSuggest'); return; }
 
-      $('#suggestIcon').textContent = catInfo.icon;
       $('#suggestCategory').textContent = catInfo.label;
       showSection('autoSuggest');
     } catch (e) {
@@ -155,72 +173,106 @@
     hideSection('emptyState');
     showSection('profileSection');
     activeProfile = allProfiles.find(p => p.isActive) || allProfiles[0];
-    renderProfileCards();
+    renderProfileDropdown();
   }
 
-  function renderProfileCards() {
-    const container = $('#profileCards');
+  function renderProfileDropdown() {
+    const container = $('#profileDropdown');
     container.innerHTML = '';
 
-    for (const profile of allProfiles) {
-      const card = document.createElement('div');
-      card.className = 'profile-card' + (profile.id === activeProfile?.id ? ' active' : '');
+    if (!activeProfile) return;
 
-      const category = profile.category || 'general';
-      const catInfo = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category] || EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES.general;
+    const category = activeProfile.category || 'general';
+    const catInfo = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category] || EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES.general;
+    const fieldCount = Object.keys(activeProfile.data || {}).filter(k => !k.startsWith('_')).length;
 
-      // Icon container
-      const iconWrap = document.createElement('div');
-      iconWrap.className = 'profile-card-icon';
-      iconWrap.textContent = catInfo.icon;
-      card.appendChild(iconWrap);
+    // Active profile row
+    const activeRow = document.createElement('div');
+    activeRow.className = 'profile-active';
 
-      // Info
-      const info = document.createElement('div');
-      info.className = 'profile-card-info';
+    const info = document.createElement('div');
+    info.className = 'profile-active-info';
 
-      const name = document.createElement('div');
-      name.className = 'profile-card-name';
-      name.textContent = profile.name || profile.sourceFile || 'Untitled';
-      info.appendChild(name);
+    const name = document.createElement('div');
+    name.className = 'profile-active-name';
+    name.textContent = activeProfile.name || activeProfile.sourceFile || 'Untitled';
+    info.appendChild(name);
 
-      const meta = document.createElement('div');
-      meta.className = 'profile-card-meta';
+    const meta = document.createElement('div');
+    meta.className = 'profile-active-meta';
+    meta.textContent = catInfo.label + ' · ' + fieldCount + ' fields';
+    info.appendChild(meta);
 
-      const tag = document.createElement('span');
-      tag.className = 'profile-card-tag';
-      tag.style.color = catInfo.color;
-      tag.textContent = catInfo.label;
-      meta.appendChild(tag);
+    activeRow.appendChild(info);
 
-      const fieldCount = Object.keys(profile.data || {}).filter(k => !k.startsWith('_')).length;
-      const fields = document.createElement('span');
-      fields.className = 'profile-card-fields';
-      fields.textContent = fieldCount + ' fields';
-      meta.appendChild(fields);
-
-      info.appendChild(meta);
-      card.appendChild(info);
-
-      // Delete (only visible on hover)
-      const del = document.createElement('button');
-      del.className = 'profile-card-delete';
-      del.title = 'Delete';
-      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-      del.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleDeleteProfile(profile);
-      });
-      card.appendChild(del);
-
-      // Chevron
+    // Chevron (dropdown indicator)
+    if (allProfiles.length > 1) {
       const chevron = document.createElement('span');
-      chevron.className = 'profile-card-chevron';
-      chevron.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>';
-      card.appendChild(chevron);
+      chevron.className = 'profile-chevron' + (dropdownOpen ? ' open' : '');
+      chevron.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 12,15 18,9"/></svg>';
+      activeRow.appendChild(chevron);
 
-      card.addEventListener('click', () => handleProfileSwitch(profile.id));
-      container.appendChild(card);
+      activeRow.style.cursor = 'pointer';
+      activeRow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownOpen = !dropdownOpen;
+        renderProfileDropdown();
+      });
+    }
+
+    container.appendChild(activeRow);
+
+    // Dropdown list (only when open and multiple profiles)
+    if (dropdownOpen && allProfiles.length > 1) {
+      const list = document.createElement('div');
+      list.className = 'profile-list';
+
+      for (const profile of allProfiles) {
+        if (profile.id === activeProfile.id) continue;
+
+        const item = document.createElement('div');
+        item.className = 'profile-list-item';
+
+        const pCat = profile.category || 'general';
+        const pCatInfo = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[pCat] || EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES.general;
+        const pFieldCount = Object.keys(profile.data || {}).filter(k => !k.startsWith('_')).length;
+
+        const itemInfo = document.createElement('div');
+        itemInfo.className = 'profile-list-item-info';
+
+        const itemName = document.createElement('div');
+        itemName.className = 'profile-list-item-name';
+        itemName.textContent = profile.name || profile.sourceFile || 'Untitled';
+        itemInfo.appendChild(itemName);
+
+        const itemMeta = document.createElement('div');
+        itemMeta.className = 'profile-list-item-meta';
+        itemMeta.textContent = pCatInfo.label + ' · ' + pFieldCount + ' fields';
+        itemInfo.appendChild(itemMeta);
+
+        item.appendChild(itemInfo);
+
+        // Delete button
+        const del = document.createElement('button');
+        del.className = 'profile-list-item-delete';
+        del.title = 'Delete';
+        del.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        del.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleDeleteProfile(profile);
+        });
+        item.appendChild(del);
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdownOpen = false;
+          handleProfileSwitch(profile.id);
+        });
+
+        list.appendChild(item);
+      }
+
+      container.appendChild(list);
     }
   }
 
@@ -244,29 +296,14 @@
     for (const [key, catInfo] of Object.entries(categories)) {
       const chip = document.createElement('button');
       chip.className = 'category-chip' + (key === selectedCategory ? ' selected' : '');
-      if (key === selectedCategory) {
-        chip.style.background = catInfo.color;
-        chip.style.color = 'white';
-        chip.style.borderColor = 'transparent';
-      }
 
-      const chipIcon = document.createElement('span');
-      chipIcon.className = 'category-chip-icon';
-      chipIcon.textContent = catInfo.icon;
-      chip.appendChild(chipIcon);
       chip.appendChild(document.createTextNode(catInfo.label));
 
       chip.addEventListener('click', () => {
         container.querySelectorAll('.category-chip').forEach(c => {
           c.classList.remove('selected');
-          c.style.background = '';
-          c.style.color = '';
-          c.style.borderColor = '';
         });
         chip.classList.add('selected');
-        chip.style.background = catInfo.color;
-        chip.style.color = 'white';
-        chip.style.borderColor = 'transparent';
         selectedCategory = key;
       });
 
@@ -322,7 +359,7 @@
     await sendToBackground({ action: 'setActiveProfile', id });
     const response = await sendToBackground({ action: 'getProfile', id });
     activeProfile = response.profile;
-    renderProfileCards();
+    renderProfileDropdown();
     await detectCurrentPageFields();
   }
 
@@ -399,7 +436,6 @@
     showSection('actionsSection');
     $('#fieldCount').textContent = matches.length + ' found';
 
-    // Update fill button text with count of matched fields
     const fillable = matches.filter(r => r.match).length;
     $('#fillBtnText').textContent = 'Auto-Fill ' + fillable + ' Field' + (fillable !== 1 ? 's' : '');
 
@@ -413,7 +449,7 @@
     const div = document.createElement('div');
     div.className = 'field-item';
 
-    // Status circle
+    // Status circle — dark bg + white check for matched, grey circle + dash for unmatched
     const statusIcon = document.createElement('div');
     statusIcon.className = 'field-status ' + result.status;
     if (result.status === 'matched') {
@@ -421,11 +457,11 @@
     } else if (result.status === 'ambiguous') {
       statusIcon.textContent = '?';
     } else {
-      statusIcon.textContent = '—';
+      statusIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="4 4"><line x1="6" y1="12" x2="18" y2="12"/></svg>';
     }
     div.appendChild(statusIcon);
 
-    // Field info (two-line: name + value)
+    // Field info
     const info = document.createElement('div');
     info.className = 'field-info';
 
@@ -454,7 +490,7 @@
       if (EasyAutoFill.FieldMatcher.isSensitiveField(result.match.profileKey)) {
         const sens = document.createElement('span');
         sens.className = 'field-sensitive';
-        sens.textContent = '🔒';
+        sens.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
         sens.title = 'Sensitive — requires confirmation';
         right.appendChild(sens);
       }
@@ -519,8 +555,7 @@
       opt.value = key;
       const val = String(enrichedData[key]);
       const label = key.replace(/_/g, ' ');
-      const isSensitive = EasyAutoFill.FieldMatcher.isSensitiveField(key);
-      opt.textContent = (isSensitive ? '🔒 ' : '') + label + ': ' + (val.length > 30 ? val.substring(0, 30) + '…' : val);
+      opt.textContent = label + ': ' + (val.length > 30 ? val.substring(0, 30) + '…' : val);
       if (key === currentKey) opt.selected = true;
       select.appendChild(opt);
     }
@@ -574,7 +609,7 @@
     if (sensitiveMatches.length > 0) {
       const fieldNames = sensitiveMatches.map(r => r.match.profileKey.replace(/_/g, ' '));
       const confirmed = confirm(
-        '🔒 Sensitive fields detected:\n\n' +
+        'Sensitive fields detected:\n\n' +
         fieldNames.map(n => '  • ' + n).join('\n') +
         '\n\nFill these fields? Your data stays local.'
       );
