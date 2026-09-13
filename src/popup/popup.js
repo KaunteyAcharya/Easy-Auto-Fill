@@ -6,23 +6,43 @@
 
   let activeProfile = null;
   let allProfiles = [];
-  let detectedFields = [];
   let matchResults = [];
   let confidenceThreshold = 0.60;
-  let pendingFile = null; // File waiting for category selection
+  let pendingFile = null;
   let suggestedCategory = null;
-  let confirmedSensitiveFields = new Set(); // Track user-confirmed sensitive fields this session
+  let confirmedSensitiveFields = new Set();
 
   // === Initialization ===
 
   document.addEventListener('DOMContentLoaded', init);
 
   async function init() {
+    await loadTheme();
     bindEvents();
     await loadSettings();
     await loadProfiles();
     await checkAutoSuggest();
     await detectCurrentPageFields();
+  }
+
+  // === Theme ===
+
+  async function loadTheme() {
+    const response = await sendToBackground({ action: 'getSetting', key: 'theme' });
+    const theme = response.value || 'system';
+    applyTheme(theme);
+    const select = $('#themeSelect');
+    if (select) select.value = theme;
+  }
+
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
   }
 
   async function loadSettings() {
@@ -48,6 +68,20 @@
     $('#suggestDismissBtn').addEventListener('click', dismissSuggest);
     $('#suggestUseBtn').addEventListener('click', applySuggest);
 
+    const menuBtn = $('#menuBtn');
+    if (menuBtn) {
+      menuBtn.addEventListener('click', handleExport);
+    }
+
+    const themeSelect = $('#themeSelect');
+    if (themeSelect) {
+      themeSelect.addEventListener('change', async function() {
+        const theme = this.value;
+        applyTheme(theme);
+        await sendToBackground({ action: 'setSetting', key: 'theme', value: theme });
+      });
+    }
+
     const slider = $('#thresholdSlider');
     if (slider) {
       slider.addEventListener('input', function() {
@@ -70,28 +104,16 @@
       if (!tab || !tab.url) return;
 
       const category = EasyAutoFill.FieldMatcher.suggestCategory(tab.url);
-      if (!category) {
-        hideSection('autoSuggest');
-        return;
-      }
+      if (!category) { hideSection('autoSuggest'); return; }
 
       suggestedCategory = category;
       const catInfo = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category];
 
-      // Check if there's already a profile of this category active
-      if (activeProfile && activeProfile.category === category) {
-        hideSection('autoSuggest');
-        return;
-      }
+      if (activeProfile && activeProfile.category === category) { hideSection('autoSuggest'); return; }
 
-      // Check if there's a profile of this category at all
       const matchingProfile = allProfiles.find(p => p.category === category);
-      if (!matchingProfile) {
-        hideSection('autoSuggest');
-        return;
-      }
+      if (!matchingProfile) { hideSection('autoSuggest'); return; }
 
-      // Show suggestion
       $('#suggestIcon').textContent = catInfo.icon;
       $('#suggestCategory').textContent = catInfo.label;
       showSection('autoSuggest');
@@ -132,7 +154,6 @@
 
     hideSection('emptyState');
     showSection('profileSection');
-
     activeProfile = allProfiles.find(p => p.isActive) || allProfiles[0];
     renderProfileCards();
   }
@@ -144,16 +165,15 @@
     for (const profile of allProfiles) {
       const card = document.createElement('div');
       card.className = 'profile-card' + (profile.id === activeProfile?.id ? ' active' : '');
-      card.dataset.id = profile.id;
 
       const category = profile.category || 'general';
       const catInfo = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category] || EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES.general;
 
-      // Icon
-      const icon = document.createElement('span');
-      icon.className = 'profile-card-icon';
-      icon.textContent = catInfo.icon;
-      card.appendChild(icon);
+      // Icon container
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'profile-card-icon';
+      iconWrap.textContent = catInfo.icon;
+      card.appendChild(iconWrap);
 
       // Info
       const info = document.createElement('div');
@@ -169,7 +189,7 @@
 
       const tag = document.createElement('span');
       tag.className = 'profile-card-tag';
-      tag.style.background = catInfo.color;
+      tag.style.color = catInfo.color;
       tag.textContent = catInfo.label;
       meta.appendChild(tag);
 
@@ -182,7 +202,7 @@
       info.appendChild(meta);
       card.appendChild(info);
 
-      // Delete button
+      // Delete (only visible on hover)
       const del = document.createElement('button');
       del.className = 'profile-card-delete';
       del.title = 'Delete';
@@ -193,9 +213,13 @@
       });
       card.appendChild(del);
 
-      // Click to activate
-      card.addEventListener('click', () => handleProfileSwitch(profile.id));
+      // Chevron
+      const chevron = document.createElement('span');
+      chevron.className = 'profile-card-chevron';
+      chevron.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>';
+      card.appendChild(chevron);
 
+      card.addEventListener('click', () => handleProfileSwitch(profile.id));
       container.appendChild(card);
     }
   }
@@ -206,7 +230,6 @@
     const file = event.target.files[0];
     if (!file) return;
     event.target.value = '';
-
     pendingFile = file;
     showCategoryPicker();
   }
@@ -221,38 +244,35 @@
     for (const [key, catInfo] of Object.entries(categories)) {
       const chip = document.createElement('button');
       chip.className = 'category-chip' + (key === selectedCategory ? ' selected' : '');
-      chip.dataset.category = key;
       if (key === selectedCategory) {
         chip.style.background = catInfo.color;
         chip.style.color = 'white';
+        chip.style.borderColor = 'transparent';
       }
 
       const chipIcon = document.createElement('span');
       chipIcon.className = 'category-chip-icon';
       chipIcon.textContent = catInfo.icon;
       chip.appendChild(chipIcon);
-
-      const chipLabel = document.createTextNode(catInfo.label);
-      chip.appendChild(chipLabel);
+      chip.appendChild(document.createTextNode(catInfo.label));
 
       chip.addEventListener('click', () => {
-        // Deselect all
         container.querySelectorAll('.category-chip').forEach(c => {
           c.classList.remove('selected');
-          c.style.background = '#f3f4f6';
-          c.style.color = '#4b5563';
+          c.style.background = '';
+          c.style.color = '';
+          c.style.borderColor = '';
         });
-        // Select this
         chip.classList.add('selected');
         chip.style.background = catInfo.color;
         chip.style.color = 'white';
+        chip.style.borderColor = 'transparent';
         selectedCategory = key;
       });
 
       container.appendChild(chip);
     }
 
-    // Add confirm button
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'btn btn-sm btn-primary';
     confirmBtn.textContent = 'Upload';
@@ -269,13 +289,11 @@
 
   async function handleFileUpload(file, category) {
     if (!file) return;
-
     showLoading(true);
     hideStatus();
 
     try {
       const parsed = await EasyAutoFill.FileParser.parseFile(file);
-
       const profile = {
         name: parsed.data._profileName || file.name.replace(/\.[^.]+$/, ''),
         data: parsed.data,
@@ -287,10 +305,10 @@
       };
 
       const response = await sendToBackground({ action: 'saveProfile', profile });
-
       if (response.error) throw new Error(response.error);
 
-      showStatus('Profile "' + profile.name + '" uploaded as ' + (EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category]?.label || 'General') + '!', 'success');
+      const catLabel = EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[category]?.label || 'General';
+      showStatus('"' + profile.name + '" uploaded as ' + catLabel, 'success');
       await loadProfiles();
       await detectCurrentPageFields();
     } catch (err) {
@@ -309,13 +327,10 @@
   }
 
   async function handleDeleteProfile(profile) {
-    const name = profile.name || 'this profile';
-    if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
-
+    if (!confirm('Delete "' + (profile.name || 'this profile') + '"?')) return;
     await sendToBackground({ action: 'deleteProfile', id: profile.id });
     activeProfile = null;
     await loadProfiles();
-
     if (!activeProfile) {
       hideSection('fieldsSection');
       hideSection('actionsSection');
@@ -340,7 +355,6 @@
         return;
       }
 
-      // Load domain-specific overrides
       const domain = new URL(tab.url).hostname;
       const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
       const domainOverrides = mappingResponse.mapping || {};
@@ -376,56 +390,73 @@
       list.style.display = 'none';
       noFields.style.display = 'block';
       hideSection('actionsSection');
-      $('#fieldCount').textContent = '0';
+      $('#fieldCount').textContent = '0 found';
       return;
     }
 
     list.style.display = 'flex';
     noFields.style.display = 'none';
     showSection('actionsSection');
-    $('#fieldCount').textContent = String(matches.length);
+    $('#fieldCount').textContent = matches.length + ' found';
+
+    // Update fill button text with count of matched fields
+    const fillable = matches.filter(r => r.match).length;
+    $('#fillBtnText').textContent = 'Auto-Fill ' + fillable + ' Field' + (fillable !== 1 ? 's' : '');
 
     list.innerHTML = '';
     for (const result of matches) {
-      const item = createFieldItem(result);
-      list.appendChild(item);
+      list.appendChild(createFieldItem(result));
     }
   }
 
   function createFieldItem(result) {
     const div = document.createElement('div');
     div.className = 'field-item';
-    div.title = 'Click to correct this match';
-    div.style.cursor = 'pointer';
 
+    // Status circle
     const statusIcon = document.createElement('div');
     statusIcon.className = 'field-status ' + result.status;
-    statusIcon.textContent = result.status === 'matched' ? '✓'
-      : result.status === 'ambiguous' ? '?' : '✗';
+    if (result.status === 'matched') {
+      statusIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>';
+    } else if (result.status === 'ambiguous') {
+      statusIcon.textContent = '?';
+    } else {
+      statusIcon.textContent = '—';
+    }
+    div.appendChild(statusIcon);
 
-    const name = document.createElement('span');
+    // Field info (two-line: name + value)
+    const info = document.createElement('div');
+    info.className = 'field-info';
+
+    const name = document.createElement('div');
     name.className = 'field-name';
     name.textContent = result.field.label || result.field.name || result.field.id || 'Unknown';
-    name.title = name.textContent;
+    info.appendChild(name);
 
-    div.appendChild(statusIcon);
-    div.appendChild(name);
+    const value = document.createElement('div');
+    value.className = 'field-value';
+    if (result.match) {
+      const v = String(result.match.value);
+      value.textContent = v.length > 35 ? v.substring(0, 35) + '…' : v;
+    } else {
+      value.textContent = 'No match found';
+      value.style.color = 'var(--text-tertiary)';
+    }
+    info.appendChild(value);
+    div.appendChild(info);
+
+    // Right side: confidence + sensitive + chevron
+    const right = document.createElement('div');
+    right.className = 'field-right';
 
     if (result.match) {
-      const value = document.createElement('span');
-      value.className = 'field-value';
-      const v = String(result.match.value);
-      value.textContent = v.length > 25 ? v.substring(0, 25) + '…' : v;
-      value.title = v;
-      div.appendChild(value);
-
-      // Sensitive field indicator
       if (EasyAutoFill.FieldMatcher.isSensitiveField(result.match.profileKey)) {
         const sens = document.createElement('span');
         sens.className = 'field-sensitive';
         sens.textContent = '🔒';
-        sens.title = 'Sensitive field — requires confirmation to fill';
-        div.appendChild(sens);
+        sens.title = 'Sensitive — requires confirmation';
+        right.appendChild(sens);
       }
 
       const conf = document.createElement('span');
@@ -433,26 +464,28 @@
         : result.match.confidence >= 0.6 ? 'medium' : 'low';
       conf.className = 'field-confidence ' + confLevel;
       conf.textContent = Math.round(result.match.confidence * 100) + '%';
-      div.appendChild(conf);
+      right.appendChild(conf);
     } else {
-      const value = document.createElement('span');
-      value.className = 'field-value';
-      value.textContent = 'No match';
-      value.style.color = '#dc2626';
-      div.appendChild(value);
+      const dash = document.createElement('span');
+      dash.className = 'field-confidence';
+      dash.textContent = '—';
+      right.appendChild(dash);
     }
 
-    // Click to correct: show profile key selector
-    div.addEventListener('click', () => showCorrectionMenu(div, result));
+    const chevron = document.createElement('span');
+    chevron.className = 'field-chevron';
+    chevron.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>';
+    right.appendChild(chevron);
 
+    div.appendChild(right);
+
+    div.addEventListener('click', () => showCorrectionMenu(div, result));
     return div;
   }
 
   async function showCorrectionMenu(div, result) {
-    // Remove any existing correction menu
     const existing = document.querySelector('.eaf-correction-menu');
     if (existing) existing.remove();
-
     if (!activeProfile) return;
 
     const menu = document.createElement('div');
@@ -466,7 +499,6 @@
     const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
     const keys = Object.keys(enrichedData).filter(k => !k.startsWith('_'));
 
-    // Sort by relevance — show current match first
     const currentKey = result.match ? result.match.profileKey : '';
     keys.sort((a, b) => {
       if (a === currentKey) return -1;
@@ -492,7 +524,6 @@
       if (key === currentKey) opt.selected = true;
       select.appendChild(opt);
     }
-
     menu.appendChild(select);
 
     const saveBtn = document.createElement('button');
@@ -501,25 +532,20 @@
     saveBtn.addEventListener('click', async () => {
       const fieldId = result.field.id || result.field.name || result.field.xpath;
       const selectedKey = select.value;
-
       const tab = await getActiveTab();
       if (tab) {
         const domain = new URL(tab.url).hostname;
         const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
         const mapping = mappingResponse.mapping || {};
-        if (selectedKey) {
-          mapping[fieldId] = selectedKey;
-        } else {
-          delete mapping[fieldId];
-        }
+        if (selectedKey) { mapping[fieldId] = selectedKey; } else { delete mapping[fieldId]; }
         await sendToBackground({ action: 'saveDomainMapping', domain, mapping });
         showStatus('Correction saved for ' + domain, 'success');
       }
       menu.remove();
       await detectCurrentPageFields();
     });
-
     menu.appendChild(saveBtn);
+
     div.parentElement.insertBefore(menu, div.nextSibling);
   }
 
@@ -530,51 +556,38 @@
     noFields.style.display = 'block';
     noFields.querySelector('p').textContent = message;
     hideSection('actionsSection');
-    $('#fieldCount').textContent = '0';
+    $('#fieldCount').textContent = '0 found';
   }
 
   // === Fill Actions ===
 
   async function handleFillAll() {
     if (!activeProfile) return;
-
     const tab = await getActiveTab();
     if (!tab) return;
 
-    // Check for sensitive fields that need confirmation
     const sensitiveMatches = matchResults.filter(r =>
       r.match && EasyAutoFill.FieldMatcher.isSensitiveField(r.match.profileKey) &&
       !confirmedSensitiveFields.has(r.match.profileKey)
     );
 
     if (sensitiveMatches.length > 0) {
-      const fieldNames = sensitiveMatches.map(r => {
-        const key = r.match.profileKey;
-        return EasyAutoFill.FieldMatcher.PROFILE_CATEGORIES[key]?.label || key.replace(/_/g, ' ');
-      });
+      const fieldNames = sensitiveMatches.map(r => r.match.profileKey.replace(/_/g, ' '));
       const confirmed = confirm(
         '🔒 Sensitive fields detected:\n\n' +
         fieldNames.map(n => '  • ' + n).join('\n') +
         '\n\nFill these fields? Your data stays local.'
       );
       if (!confirmed) {
-        // Fill only non-sensitive fields
-        showStatus('Skipped sensitive fields. Click individual 🔒 fields to confirm.', 'info');
-        await fillWithFilter(tab, (result) => {
-          return !result.match || !EasyAutoFill.FieldMatcher.isSensitiveField(result.match.profileKey);
-        });
+        showStatus('Skipped sensitive fields', 'info');
+        await fillWithFilter(tab, (result) => !result.match || !EasyAutoFill.FieldMatcher.isSensitiveField(result.match.profileKey));
         return;
       }
-      // Mark all as confirmed for this session
-      for (const r of sensitiveMatches) {
-        confirmedSensitiveFields.add(r.match.profileKey);
-      }
+      for (const r of sensitiveMatches) confirmedSensitiveFields.add(r.match.profileKey);
     }
 
     showLoading(true);
-
     try {
-      // Load domain overrides
       const domain = new URL(tab.url).hostname;
       const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
       const domainOverrides = mappingResponse.mapping || {};
@@ -590,9 +603,7 @@
       });
 
       if (response.error) throw new Error(response.error);
-
-      const msg = response.filled + ' of ' + response.total + ' fields filled';
-      showStatus(msg + (response.failed ? ' (' + response.failed + ' failed)' : ''), 'success');
+      showStatus(response.filled + ' of ' + response.total + ' fields filled', 'success');
     } catch (err) {
       showStatus('Fill failed: ' + err.message, 'error');
     } finally {
@@ -605,18 +616,14 @@
     try {
       const domain = new URL(tab.url).hostname;
       const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
-      const domainOverrides = mappingResponse.mapping || {};
-
       const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
-      enrichedData._domainOverrides = domainOverrides;
+      enrichedData._domainOverrides = mappingResponse.mapping || {};
       enrichedData._confidenceThreshold = confidenceThreshold;
 
-      // Filter out sensitive fields by marking them in the skip list
       const skipFields = new Set();
       for (const result of matchResults) {
         if (!filterFn(result)) {
-          const fieldId = result.field.id || result.field.name || result.field.xpath;
-          skipFields.add(fieldId);
+          skipFields.add(result.field.id || result.field.name || result.field.xpath);
         }
       }
       enrichedData._skipFields = Array.from(skipFields);
@@ -628,9 +635,7 @@
       });
 
       if (response.error) throw new Error(response.error);
-
-      const msg = response.filled + ' of ' + response.total + ' fields filled';
-      showStatus(msg, 'success');
+      showStatus(response.filled + ' of ' + response.total + ' fields filled', 'success');
     } catch (err) {
       showStatus('Fill failed: ' + err.message, 'error');
     } finally {
@@ -649,7 +654,6 @@
       profileData: enrichedData,
       sections: activeProfile.sections
     });
-
     showStatus('Fields highlighted on page', 'info');
   }
 
@@ -659,8 +663,6 @@
     await sendToContentScript(tab.id, { action: 'clearHighlights' });
     hideStatus();
   }
-
-  // === Export/Import ===
 
   async function handleExport() {
     const response = await sendToBackground({ action: 'exportData' });
@@ -678,29 +680,22 @@
 
   function toggleSettings() {
     const panel = $('#settingsPanel');
-    if (panel) {
-      panel.style.display = panel.style.display === 'none' ? '' : 'none';
-    }
+    if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
   }
 
   // === Helpers ===
 
   function sendToBackground(message) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, (response) => {
-        resolve(response || {});
-      });
+      chrome.runtime.sendMessage(message, (response) => resolve(response || {}));
     });
   }
 
   function sendToContentScript(tabId, message) {
     return new Promise((resolve) => {
       chrome.tabs.sendMessage(tabId, message, (response) => {
-        if (chrome.runtime.lastError) {
-          resolve({ error: chrome.runtime.lastError.message });
-        } else {
-          resolve(response || {});
-        }
+        if (chrome.runtime.lastError) resolve({ error: chrome.runtime.lastError.message });
+        else resolve(response || {});
       });
     });
   }
@@ -710,19 +705,9 @@
     return tab;
   }
 
-  function showSection(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-  }
-
-  function hideSection(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  }
-
-  function showLoading(visible) {
-    $('#loading').style.display = visible ? 'flex' : 'none';
-  }
+  function showSection(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
+  function hideSection(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+  function showLoading(visible) { $('#loading').style.display = visible ? 'flex' : 'none'; }
 
   function showStatus(message, type) {
     const section = $('#statusSection');
@@ -730,14 +715,9 @@
     section.style.display = '';
     msg.textContent = message;
     msg.className = 'status-message ' + type;
-
-    if (type === 'success' || type === 'info') {
-      setTimeout(hideStatus, 4000);
-    }
+    if (type === 'success' || type === 'info') setTimeout(hideStatus, 4000);
   }
 
-  function hideStatus() {
-    $('#statusSection').style.display = 'none';
-  }
+  function hideStatus() { $('#statusSection').style.display = 'none'; }
 
 })();
