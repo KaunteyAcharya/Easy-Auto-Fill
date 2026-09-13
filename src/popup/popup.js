@@ -26,30 +26,39 @@
     await detectCurrentPageFields();
   }
 
+  let currentTheme = 'light';
+
   // === Theme ===
 
   async function loadTheme() {
     const response = await sendToBackground({ action: 'getSetting', key: 'theme' });
-    const theme = response.value || 'system';
-    applyTheme(theme);
-    updateThemeToggle(theme);
+    currentTheme = response.value || 'light';
+    applyTheme(currentTheme);
+    updateThemeIcon();
   }
 
   function applyTheme(theme) {
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
-    } else if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
     } else {
-      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }
 
-  function updateThemeToggle(activeTheme) {
-    const btns = $$('.theme-toggle-btn');
-    btns.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.theme === activeTheme);
-    });
+  function updateThemeIcon() {
+    const sunIcon = $('#themeIconSun');
+    const moonIcon = $('#themeIconMoon');
+    if (sunIcon && moonIcon) {
+      sunIcon.style.display = currentTheme === 'dark' ? 'none' : '';
+      moonIcon.style.display = currentTheme === 'dark' ? '' : 'none';
+    }
+  }
+
+  async function toggleTheme() {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(currentTheme);
+    updateThemeIcon();
+    await sendToBackground({ action: 'setSetting', key: 'theme', value: currentTheme });
   }
 
   async function loadSettings() {
@@ -80,17 +89,10 @@
       menuBtn.addEventListener('click', handleExport);
     }
 
-    // Theme toggle buttons
-    const themeToggle = $('#themeToggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.theme-toggle-btn');
-        if (!btn) return;
-        const theme = btn.dataset.theme;
-        applyTheme(theme);
-        updateThemeToggle(theme);
-        await sendToBackground({ action: 'setSetting', key: 'theme', value: theme });
-      });
+    // Theme toggle button
+    const themeBtn = $('#themeBtn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', toggleTheme);
     }
 
     const slider = $('#thresholdSlider');
@@ -165,6 +167,7 @@
     if (allProfiles.length === 0) {
       showSection('emptyState');
       hideSection('profileSection');
+      hideSection('confidenceSection');
       hideSection('fieldsSection');
       hideSection('actionsSection');
       return;
@@ -380,10 +383,12 @@
 
   async function detectCurrentPageFields() {
     if (!activeProfile) {
+      hideSection('confidenceSection');
       hideSection('fieldsSection');
       hideSection('actionsSection');
       return;
     }
+    showSection('confidenceSection');
 
     try {
       const tab = await getActiveTab();
@@ -453,11 +458,11 @@
     const statusIcon = document.createElement('div');
     statusIcon.className = 'field-status ' + result.status;
     if (result.status === 'matched') {
-      statusIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>';
+      statusIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-inverse)" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>';
     } else if (result.status === 'ambiguous') {
       statusIcon.textContent = '?';
     } else {
-      statusIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="4 4"><line x1="6" y1="12" x2="18" y2="12"/></svg>';
+      statusIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--status-off-stroke)" stroke-width="3" stroke-dasharray="4 4"><line x1="6" y1="12" x2="18" y2="12"/></svg>';
     }
     div.appendChild(statusIcon);
 
