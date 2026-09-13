@@ -57,24 +57,78 @@ var EasyAutoFill = EasyAutoFill || {};
   }
 
   function fillSelect(el, value) {
-    const valLower = String(value).toLowerCase();
+    const valLower = String(value).toLowerCase().trim();
     let matched = false;
+    let bestScore = 0;
+    let bestOption = null;
 
     for (const opt of el.options) {
-      if (opt.value.toLowerCase() === valLower ||
-          opt.textContent.trim().toLowerCase() === valLower ||
-          opt.textContent.trim().toLowerCase().includes(valLower) ||
-          valLower.includes(opt.textContent.trim().toLowerCase())) {
-        el.value = opt.value;
-        matched = true;
+      if (!opt.value && !opt.textContent.trim()) continue; // Skip empty placeholder options
+
+      const optText = opt.textContent.trim().toLowerCase();
+      const optVal = opt.value.toLowerCase();
+
+      // Exact match
+      if (optVal === valLower || optText === valLower) {
+        bestOption = opt;
+        bestScore = 1.0;
         break;
       }
+
+      // Substring match
+      if (optText.includes(valLower) || valLower.includes(optText)) {
+        const score = 0.9;
+        if (score > bestScore) { bestScore = score; bestOption = opt; }
+        continue;
+      }
+
+      // Fuzzy match using Levenshtein for dropdown options
+      if (valLower.length > 2 && optText.length > 2) {
+        const dist = levenshteinDistance(valLower, optText);
+        const maxLen = Math.max(valLower.length, optText.length);
+        const similarity = 1 - dist / maxLen;
+        if (similarity > 0.7 && similarity > bestScore) {
+          bestScore = similarity;
+          bestOption = opt;
+        }
+      }
+
+      // Word-level matching (e.g. "India" matches "India (+91)")
+      const valWords = valLower.split(/\s+/);
+      const optWords = optText.split(/\s+/);
+      const commonWords = valWords.filter(w => w.length > 2 && optWords.some(ow => ow.includes(w) || w.includes(ow)));
+      if (commonWords.length > 0) {
+        const score = 0.6 + (commonWords.length / Math.max(valWords.length, optWords.length)) * 0.3;
+        if (score > bestScore) { bestScore = score; bestOption = opt; }
+      }
+    }
+
+    if (bestOption && bestScore >= 0.6) {
+      el.value = bestOption.value;
+      matched = true;
     }
 
     if (matched) {
       dispatchEvents(el);
     }
     return matched;
+  }
+
+  function levenshteinDistance(a, b) {
+    const m = a.length;
+    const n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }
+    }
+    return dp[m][n];
   }
 
   function fillCheckboxRadio(el, value) {
@@ -144,7 +198,7 @@ var EasyAutoFill = EasyAutoFill || {};
       case 'previewFill': {
         clearHighlights();
         const fields = FieldDetector.detectFields();
-        const matches = FieldMatcher.matchAllFields(fields, message.profileData);
+        const matches = FieldMatcher.matchAllFields(fields, message.profileData, message.sections);
 
         for (const result of matches) {
           const el = FieldDetector.getElementByFieldInfo(result.field);
@@ -159,7 +213,9 @@ var EasyAutoFill = EasyAutoFill || {};
             id: r.field.id,
             type: r.field.type,
             placeholder: r.field.placeholder,
-            xpath: r.field.xpath
+            xpath: r.field.xpath,
+            sectionType: r.field.sectionType,
+            sectionIndex: r.field.sectionIndex
           },
           match: r.match,
           status: r.status
@@ -170,7 +226,7 @@ var EasyAutoFill = EasyAutoFill || {};
       case 'fillFields': {
         clearHighlights();
         const fields = FieldDetector.detectFields();
-        const matches = FieldMatcher.matchAllFields(fields, message.profileData);
+        const matches = FieldMatcher.matchAllFields(fields, message.profileData, message.sections);
         const overrides = message.overrides || {};
 
         let filled = 0;

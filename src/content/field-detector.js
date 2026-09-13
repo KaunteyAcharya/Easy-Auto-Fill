@@ -61,6 +61,7 @@ EasyAutoFill.FieldDetector = {
   getFieldInfo(el) {
     const label = this.findLabel(el);
     const rect = el.getBoundingClientRect();
+    const sectionInfo = this.findSectionContext(el);
 
     return {
       tagName: el.tagName,
@@ -78,8 +79,60 @@ EasyAutoFill.FieldDetector = {
       options: el.tagName === 'SELECT' ? this.getSelectOptions(el) : [],
       rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
       xpath: this.getXPath(el),
-      index: Array.from((el.ownerDocument || document).querySelectorAll('input, textarea, select')).indexOf(el)
+      index: Array.from((el.ownerDocument || document).querySelectorAll('input, textarea, select')).indexOf(el),
+      sectionType: sectionInfo.type,
+      sectionIndex: sectionInfo.index
     };
+  },
+
+  // Detect repeating section containers (Work Experience 1, Work Experience 2, Education 1, etc.)
+  findSectionContext(el) {
+    const SECTION_PATTERNS = [
+      { regex: /work\s*experience\s*(\d+)?/i, type: 'work' },
+      { regex: /employment\s*(\d+)?/i, type: 'work' },
+      { regex: /position\s*(\d+)?/i, type: 'work' },
+      { regex: /job\s*(\d+)?/i, type: 'work' },
+      { regex: /education\s*(\d+)?/i, type: 'education' },
+      { regex: /school\s*(\d+)?/i, type: 'education' },
+      { regex: /degree\s*(\d+)?/i, type: 'education' },
+    ];
+
+    let current = el.parentElement;
+    let depth = 0;
+
+    while (current && depth < 15) {
+      // Check for heading elements or legend within this container
+      const headings = current.querySelectorAll(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > legend, :scope > [class*="title"], :scope > [class*="header"], :scope > [class*="heading"]');
+
+      for (const heading of headings) {
+        const text = heading.textContent.trim();
+        for (const pattern of SECTION_PATTERNS) {
+          const match = text.match(pattern.regex);
+          if (match) {
+            // Extract index: "Work Experience 2" → 1 (0-based), no number → 0
+            const num = match[1] ? parseInt(match[1], 10) - 1 : 0;
+            return { type: pattern.type, index: Math.max(0, num) };
+          }
+        }
+      }
+
+      // Also check data attributes and class names on the container itself
+      const containerText = (current.getAttribute('data-automation-id') || '') +
+                           ' ' + (current.getAttribute('aria-label') || '') +
+                           ' ' + (current.className || '');
+      for (const pattern of SECTION_PATTERNS) {
+        const match = containerText.match(pattern.regex);
+        if (match) {
+          const num = match[1] ? parseInt(match[1], 10) - 1 : 0;
+          return { type: pattern.type, index: Math.max(0, num) };
+        }
+      }
+
+      current = current.parentElement;
+      depth++;
+    }
+
+    return { type: null, index: 0 };
   },
 
   findLabel(el) {

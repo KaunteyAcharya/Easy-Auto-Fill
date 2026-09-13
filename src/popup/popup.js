@@ -7,6 +7,7 @@
   let activeProfile = null;
   let detectedFields = [];
   let matchResults = [];
+  let confidenceThreshold = 0.60; // Default minimum confidence
 
   // === Initialization ===
 
@@ -14,8 +15,21 @@
 
   async function init() {
     bindEvents();
+    await loadSettings();
     await loadProfiles();
     await detectCurrentPageFields();
+  }
+
+  async function loadSettings() {
+    const response = await sendToBackground({ action: 'getSetting', key: 'confidenceThreshold' });
+    if (response.value !== null && response.value !== undefined) {
+      confidenceThreshold = response.value;
+    }
+    const slider = $('#thresholdSlider');
+    if (slider) {
+      slider.value = Math.round(confidenceThreshold * 100);
+      $('#thresholdValue').textContent = Math.round(confidenceThreshold * 100) + '%';
+    }
   }
 
   function bindEvents() {
@@ -27,7 +41,20 @@
     $('#previewBtn').addEventListener('click', handlePreview);
     $('#clearBtn').addEventListener('click', handleClear);
     $('#exportBtn').addEventListener('click', handleExport);
-    $('#settingsBtn').addEventListener('click', handleSettings);
+    $('#settingsBtn').addEventListener('click', toggleSettings);
+
+    const slider = $('#thresholdSlider');
+    if (slider) {
+      slider.addEventListener('input', function() {
+        const val = parseInt(this.value, 10);
+        $('#thresholdValue').textContent = val + '%';
+      });
+      slider.addEventListener('change', async function() {
+        confidenceThreshold = parseInt(this.value, 10) / 100;
+        await sendToBackground({ action: 'setSetting', key: 'confidenceThreshold', value: confidenceThreshold });
+        await detectCurrentPageFields();
+      });
+    }
   }
 
   // === Profile Management ===
@@ -135,10 +162,19 @@
         return;
       }
 
-      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data);
+      // Load domain-specific overrides
+      const domain = new URL(tab.url).hostname;
+      const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
+      const domainOverrides = mappingResponse.mapping || {};
+
+      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
+      enrichedData._domainOverrides = domainOverrides;
+      enrichedData._confidenceThreshold = confidenceThreshold;
+
       const response = await sendToContentScript(tab.id, {
         action: 'previewFill',
-        profileData: enrichedData
+        profileData: enrichedData,
+        sections: activeProfile.sections
       });
 
       if (!response || response.error) {
@@ -181,6 +217,8 @@
   function createFieldItem(result) {
     const div = document.createElement('div');
     div.className = 'field-item';
+    div.title = 'Click to correct this match';
+    div.style.cursor = 'pointer';
 
     const statusIcon = document.createElement('div');
     statusIcon.className = 'field-status ' + result.status;
@@ -217,7 +255,83 @@
       div.appendChild(value);
     }
 
+    // Click to correct: show profile key selector
+    div.addEventListener('click', () => showCorrectionMenu(div, result));
+
     return div;
+  }
+
+  async function showCorrectionMenu(div, result) {
+    // Remove any existing correction menu
+    const existing = document.querySelector('.eaf-correction-menu');
+    if (existing) existing.remove();
+
+    if (!activeProfile) return;
+
+    const menu = document.createElement('div');
+    menu.className = 'eaf-correction-menu';
+
+    const title = document.createElement('div');
+    title.className = 'correction-title';
+    title.textContent = 'Assign profile field:';
+    menu.appendChild(title);
+
+    const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
+    const keys = Object.keys(enrichedData).filter(k => !k.startsWith('_'));
+
+    // Sort by relevance — show current match first
+    const currentKey = result.match ? result.match.profileKey : '';
+    keys.sort((a, b) => {
+      if (a === currentKey) return -1;
+      if (b === currentKey) return 1;
+      return a.localeCompare(b);
+    });
+
+    const select = document.createElement('select');
+    select.className = 'correction-select';
+
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '— Skip this field —';
+    select.appendChild(noneOpt);
+
+    for (const key of keys) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      const val = String(enrichedData[key]);
+      opt.textContent = key.replace(/_/g, ' ') + ': ' + (val.length > 30 ? val.substring(0, 30) + '…' : val);
+      if (key === currentKey) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    menu.appendChild(select);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-sm btn-primary';
+    saveBtn.textContent = 'Save for this site';
+    saveBtn.addEventListener('click', async () => {
+      const fieldId = result.field.id || result.field.name || result.field.xpath;
+      const selectedKey = select.value;
+
+      const tab = await getActiveTab();
+      if (tab) {
+        const domain = new URL(tab.url).hostname;
+        const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
+        const mapping = mappingResponse.mapping || {};
+        if (selectedKey) {
+          mapping[fieldId] = selectedKey;
+        } else {
+          delete mapping[fieldId];
+        }
+        await sendToBackground({ action: 'saveDomainMapping', domain, mapping });
+        showStatus('Correction saved for ' + domain, 'success');
+      }
+      menu.remove();
+      await detectCurrentPageFields();
+    });
+
+    menu.appendChild(saveBtn);
+    div.parentElement.insertBefore(menu, div.nextSibling);
   }
 
   function showNoFields(message) {
@@ -241,10 +355,19 @@
     showLoading(true);
 
     try {
-      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data);
+      // Load domain overrides
+      const domain = new URL(tab.url).hostname;
+      const mappingResponse = await sendToBackground({ action: 'getDomainMapping', domain });
+      const domainOverrides = mappingResponse.mapping || {};
+
+      const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
+      enrichedData._domainOverrides = domainOverrides;
+      enrichedData._confidenceThreshold = confidenceThreshold;
+
       const response = await sendToContentScript(tab.id, {
         action: 'fillFields',
-        profileData: enrichedData
+        profileData: enrichedData,
+        sections: activeProfile.sections
       });
 
       if (response.error) throw new Error(response.error);
@@ -263,9 +386,11 @@
     const tab = await getActiveTab();
     if (!tab) return;
 
+    const enrichedData = EasyAutoFill.FieldMatcher.preprocessProfile(activeProfile.data, activeProfile.sections);
     await sendToContentScript(tab.id, {
       action: 'previewFill',
-      profileData: activeProfile.data
+      profileData: enrichedData,
+      sections: activeProfile.sections
     });
 
     showStatus('Fields highlighted on page', 'info');
@@ -294,9 +419,10 @@
     }
   }
 
-  function handleSettings() {
-    if (chrome.runtime.openOptionsPage) {
-      chrome.runtime.openOptionsPage();
+  function toggleSettings() {
+    const panel = $('#settingsPanel');
+    if (panel) {
+      panel.style.display = panel.style.display === 'none' ? '' : 'none';
     }
   }
 

@@ -83,6 +83,21 @@
       </div>
     </section>
 
+    <!-- Settings Panel -->
+    <section id="settingsPanel" class="section" style="display:none;">
+      <div class="section-header">
+        <h3>Settings</h3>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Min. Confidence</label>
+        <div class="setting-control">
+          <input type="range" id="thresholdSlider" min="40" max="95" value="60" class="threshold-slider">
+          <span id="thresholdValue" class="threshold-value">60%</span>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:4px;">Lower = more fields filled (may be less accurate). Click any field above to correct its match for this site.</p>
+    </section>
+
     <!-- Status Messages -->
     <section id="statusSection" class="section" style="display:none;">
       <div id="statusMessage" class="status-message"></div>

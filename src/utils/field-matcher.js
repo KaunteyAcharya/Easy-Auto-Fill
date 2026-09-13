@@ -65,8 +65,11 @@ EasyAutoFill.FieldMatcher = {
     experience_years:['years of experience', 'experience years', 'total experience', 'how many years', 'yoe'],
     professional_summary: ['summary', 'professional summary', 'about', 'about me', 'bio', 'biography', 'objective', 'profile summary', 'career objective', 'personal statement', 'career summary', 'tell us about yourself', 'describe yourself', 'professional profile', 'executive summary', 'overview'],
     cover_letter:   ['cover letter', 'motivation', 'motivation letter', 'why this role', 'why are you interested', 'message to hiring', 'message to the hiring team', 'why do you want', 'additional information', 'letter of interest', 'personal message', 'note to recruiter'],
+    role_description: ['role description', 'job description', 'responsibilities', 'duties', 'description', 'what did you do', 'describe your role', 'key responsibilities', 'job responsibilities'],
+    start_date:     ['from', 'start date', 'from date', 'date from', 'started', 'joining date', 'start month'],
+    end_date:       ['to', 'end date', 'to date', 'date to', 'ended', 'leaving date', 'end month', 'last day'],
     notice_period:  ['notice period', 'how soon can you start', 'earliest start date', 'when can you start', 'when can you join'],
-    availability:   ['availability', 'start date', 'available from', 'available date', 'earliest start', 'when available', 'date available'],
+    availability:   ['availability', 'available from', 'available date', 'earliest start', 'when available', 'date available'],
 
     education:      ['education', 'qualification', 'academic background', 'educational background', 'educational history'],
     degree:         ['degree', 'highest degree', 'qualification name', 'level of education', 'education level', 'field of study', 'course', 'program', 'major'],
@@ -138,9 +141,43 @@ EasyAutoFill.FieldMatcher = {
   // Fields that should NEVER contain URL values
   NON_URL_FIELDS: new Set(['name', 'first_name', 'last_name', 'middle_name', 'address', 'address_line_2', 'city', 'state', 'zip', 'country', 'phone', 'phone_number', 'phone_country_code', 'email', 'company', 'current_title', 'degree', 'university', 'salary', 'gpa']),
 
+  // Month name → number mapping for date parsing
+  MONTH_MAP: {
+    'jan': '01', 'january': '01', 'feb': '02', 'february': '02',
+    'mar': '03', 'march': '03', 'apr': '04', 'april': '04',
+    'may': '05', 'jun': '06', 'june': '06', 'jul': '07', 'july': '07',
+    'aug': '08', 'august': '08', 'sep': '09', 'sept': '09', 'september': '09',
+    'oct': '10', 'october': '10', 'nov': '11', 'november': '11',
+    'dec': '12', 'december': '12',
+  },
+
+  // Parse a date string like "Dec 2025" or "August 2024" into MM/YYYY
+  parseDateToMMYYYY(dateStr) {
+    if (!dateStr) return null;
+    const str = dateStr.trim().toLowerCase();
+    if (str === 'present' || str === 'current') return null; // Leave "present" unfilled
+
+    // Try "Month YYYY" format
+    const monthYear = str.match(/^([a-z]+)\s+(\d{4})$/);
+    if (monthYear) {
+      const month = this.MONTH_MAP[monthYear[1]];
+      if (month) return month + '/' + monthYear[2];
+    }
+
+    // Try "MM/YYYY" already
+    const mmyyyy = str.match(/^(\d{1,2})\/(\d{4})$/);
+    if (mmyyyy) return mmyyyy[1].padStart(2, '0') + '/' + mmyyyy[2];
+
+    // Try "YYYY-MM"
+    const isoMonth = str.match(/^(\d{4})-(\d{1,2})$/);
+    if (isoMonth) return isoMonth[2].padStart(2, '0') + '/' + isoMonth[1];
+
+    return null;
+  },
+
   // === Pre-process profile to add derived fields ===
 
-  preprocessProfile(profileData) {
+  preprocessProfile(profileData, sections) {
     const data = { ...profileData };
 
     // Parse phone number into parts
@@ -160,6 +197,65 @@ EasyAutoFill.FieldMatcher = {
       if (parts.length >= 2) {
         data.first_name = parts[0];
         data.last_name = parts.slice(1).join(' ');
+      }
+    }
+
+    // Expand work experience entries into indexed fields
+    if (sections && sections['Work Experience'] && Array.isArray(sections['Work Experience'])) {
+      const entries = sections['Work Experience'];
+      data._workEntries = entries.length;
+
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const prefix = 'work_' + i + '_';
+
+        if (entry.title) data[prefix + 'title'] = entry.title;
+        if (entry.company) data[prefix + 'company'] = entry.company;
+        if (entry.location) data[prefix + 'location'] = entry.location;
+        if (entry.description) data[prefix + 'description'] = entry.description;
+
+        // Parse duration "Dec 2025 - Present" → from/to dates
+        if (entry.duration) {
+          const parts = entry.duration.split(/\s*[-–—]\s*/);
+          if (parts.length >= 1) {
+            const from = this.parseDateToMMYYYY(parts[0]);
+            if (from) data[prefix + 'from'] = from;
+          }
+          if (parts.length >= 2) {
+            const to = this.parseDateToMMYYYY(parts[1]);
+            if (to) data[prefix + 'to'] = to;
+          }
+        }
+      }
+    }
+
+    // Expand education entries into indexed fields
+    if (sections && sections['Education'] && Array.isArray(sections['Education'])) {
+      const entries = sections['Education'];
+      data._eduEntries = entries.length;
+
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const prefix = 'edu_' + i + '_';
+
+        if (entry.title) data[prefix + 'degree'] = entry.title;
+        if (entry.degree) data[prefix + 'degree'] = entry.degree;
+        if (entry.institution) data[prefix + 'university'] = entry.institution;
+        if (entry.university) data[prefix + 'university'] = entry.university;
+        if (entry.school) data[prefix + 'university'] = entry.school;
+        if (entry.field_of_study) data[prefix + 'field_of_study'] = entry.field_of_study;
+
+        if (entry.duration) {
+          const parts = entry.duration.split(/\s*[-–—]\s*/);
+          if (parts.length >= 1) {
+            const from = this.parseDateToMMYYYY(parts[0]);
+            if (from) data[prefix + 'from'] = from;
+          }
+          if (parts.length >= 2) {
+            const to = this.parseDateToMMYYYY(parts[1]);
+            if (to) data[prefix + 'to'] = to;
+          }
+        }
       }
     }
 
@@ -486,14 +582,88 @@ EasyAutoFill.FieldMatcher = {
     return dp[m][n];
   },
 
+  // Build a section-scoped profile subset for grouped fields
+  buildSectionProfile(enriched, sectionType, sectionIndex) {
+    const subset = {};
+    const prefix = (sectionType === 'work' ? 'work_' : 'edu_') + sectionIndex + '_';
+
+    // Add all indexed fields for this section entry
+    for (const [key, value] of Object.entries(enriched)) {
+      if (key.startsWith(prefix)) {
+        // Map "work_0_title" → "current_title", "work_0_company" → "company", etc.
+        const fieldName = key.substring(prefix.length);
+        const mapped = this.SECTION_FIELD_MAP[fieldName];
+        if (mapped) subset[mapped] = value;
+        subset[key] = value; // Keep the raw indexed key too
+      }
+    }
+
+    return subset;
+  },
+
+  // Maps section sub-field names to profile keys for semantic matching
+  SECTION_FIELD_MAP: {
+    'title': 'current_title',
+    'company': 'company',
+    'location': 'location',
+    'description': 'role_description',
+    'from': 'start_date',
+    'to': 'end_date',
+    'degree': 'degree',
+    'university': 'university',
+    'field_of_study': 'degree',
+  },
+
   // === Aggregate matching ===
 
-  matchAllFields(fields, profileData) {
-    // Enrich profile with derived fields (phone parts, name parts)
-    const enriched = this.preprocessProfile(profileData);
+  matchAllFields(fields, profileData, sections) {
+    // Enrich profile with derived fields (phone parts, name parts, indexed work entries)
+    const enriched = this.preprocessProfile(profileData, sections);
+
+    // Apply domain-specific overrides if provided
+    const domainOverrides = profileData._domainOverrides || {};
 
     const results = [];
     for (const field of fields) {
+      const fieldId = field.id || field.name || field.xpath;
+
+      // Check domain override first
+      if (domainOverrides[fieldId]) {
+        const overrideKey = domainOverrides[fieldId];
+        if (enriched[overrideKey] !== undefined) {
+          results.push({
+            field,
+            match: {
+              profileKey: overrideKey,
+              value: enriched[overrideKey],
+              confidence: 0.99,
+              method: 'domain_override'
+            },
+            status: 'matched'
+          });
+          continue;
+        }
+      }
+
+      // Section-aware matching: if field is in a repeating section, match against that entry
+      if (field.sectionType && enriched._workEntries) {
+        const sectionProfile = this.buildSectionProfile(enriched, field.sectionType, field.sectionIndex);
+
+        if (Object.keys(sectionProfile).length > 0) {
+          // Try matching against section-specific data first
+          const sectionMatch = this.matchField(field, sectionProfile);
+          if (sectionMatch && sectionMatch.confidence >= 0.65) {
+            results.push({
+              field,
+              match: sectionMatch,
+              status: sectionMatch.confidence >= 0.75 ? 'matched' : 'ambiguous'
+            });
+            continue;
+          }
+        }
+      }
+
+      // Regular matching against full profile
       const match = this.matchField(field, enriched);
       results.push({
         field,
@@ -549,6 +719,15 @@ EasyAutoFill.FieldMatcher = {
           current.match = null;
           current.status = 'unmatched';
         }
+      }
+    }
+
+    // Apply confidence threshold — drop matches below user's minimum
+    const threshold = profileData._confidenceThreshold || 0.60;
+    for (const result of results) {
+      if (result.match && result.match.method !== 'domain_override' && result.match.confidence < threshold) {
+        result.match = null;
+        result.status = 'unmatched';
       }
     }
 

@@ -434,6 +434,90 @@ body {
   background: #eef2ff;
 }
 
+/* Settings Panel */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setting-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.threshold-slider {
+  width: 120px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e5e7eb;
+  border-radius: 2px;
+  outline: none;
+}
+
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4F46E5;
+  cursor: pointer;
+}
+
+.threshold-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4F46E5;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Correction Menu */
+.eaf-correction-menu {
+  padding: 8px;
+  margin: 4px 0;
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.correction-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4338CA;
+}
+
+.correction-select {
+  width: 100%;
+  padding: 5px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  background: white;
+  color: #1f2937;
+}
+
+.correction-select:focus {
+  outline: none;
+  border-color: #4F46E5;
+}
+
 /* Scrollbar */
 .fields-list::-webkit-scrollbar {
   width: 5px;
