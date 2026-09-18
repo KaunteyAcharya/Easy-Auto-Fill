@@ -36,9 +36,9 @@ EasyAutoFill.FieldMatcher = {
   SEMANTIC_MAP: {
     // === Personal / Identity ===
     name:           ['name', 'full name', 'your name', 'applicant name', 'candidate name', 'legal name', 'complete name', 'display name'],
-    first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'first', 'fname', 'local given name', 'local given names'],
-    middle_name:    ['middle name', 'middle initial', 'middle', 'second name'],
-    last_name:      ['last name', 'family name', 'surname', 'last', 'lname', 'local family name'],
+    first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'fname', 'local given name', 'local given names'],
+    middle_name:    ['middle name', 'middle initial', 'second name'],
+    last_name:      ['last name', 'family name', 'surname', 'lname', 'local family name'],
     prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific'],
     nickname:       ['nickname', 'preferred name', 'known as', 'goes by', 'alias'],
     pronouns:       ['pronouns', 'preferred pronouns', 'your pronouns', 'gender pronouns'],
@@ -108,8 +108,8 @@ EasyAutoFill.FieldMatcher = {
     professional_summary: ['summary', 'professional summary', 'about', 'about me', 'bio', 'biography', 'objective', 'profile summary', 'career objective', 'personal statement', 'career summary', 'tell us about yourself', 'describe yourself', 'professional profile', 'executive summary', 'overview'],
     cover_letter:   ['cover letter', 'motivation', 'motivation letter', 'why this role', 'why are you interested', 'message to hiring', 'message to the hiring team', 'why do you want', 'additional information', 'letter of interest', 'personal message', 'note to recruiter'],
     role_description: ['role description', 'job description', 'responsibilities', 'duties', 'description', 'what did you do', 'describe your role', 'key responsibilities', 'job responsibilities'],
-    start_date:     ['from', 'start date', 'from date', 'date from', 'started', 'joining date', 'start month'],
-    end_date:       ['to', 'end date', 'to date', 'date to', 'ended', 'leaving date', 'end month', 'last day'],
+    start_date:     ['start date', 'from date', 'date from', 'started', 'joining date', 'start month'],
+    end_date:       ['end date', 'to date', 'date to', 'ended', 'leaving date', 'end month', 'last day'],
     notice_period:  ['notice period', 'how soon can you start', 'earliest start date', 'when can you start', 'when can you join'],
     availability:   ['availability', 'available from', 'available date', 'earliest start', 'when available', 'date available'],
     salary:         ['salary', 'expected salary', 'salary expectation', 'compensation', 'desired salary', 'expected ctc', 'current ctc', 'pay rate', 'hourly rate'],
@@ -465,6 +465,14 @@ EasyAutoFill.FieldMatcher = {
     return text.split(' ').filter(w => w.length > 1 && !this.STOPWORDS.has(w));
   },
 
+  // Substring match with length ratio guard — prevents "work" matching "workplace"
+  isSubstringMatch(a, b) {
+    if (a.length < 3 || b.length < 3) return false;
+    const ratio = Math.min(a.length, b.length) / Math.max(a.length, b.length);
+    if (ratio < 0.75) return false;
+    return a.includes(b) || b.includes(a);
+  },
+
   // === Validation: ensure value makes sense for the field ===
 
   validateMatch(profileKey, value, fieldInfo) {
@@ -596,34 +604,41 @@ EasyAutoFill.FieldMatcher = {
 
   semanticScore(tokens, searchText, phrase) {
     if (searchText === phrase) return 1.0;
-    if (searchText.includes(phrase)) return 0.95;
 
     const phraseTokens = phrase.split(' ').filter(w => !this.STOPWORDS.has(w));
     if (phraseTokens.length === 0) return 0;
 
-    const allFound = phraseTokens.every(pt =>
-      tokens.some(st => st === pt || st.includes(pt) || pt.includes(st))
-    );
-    if (allFound && phraseTokens.length > 1) return 0.9;
+    // Substring inclusion check — only for multi-word phrases to avoid
+    // single words like "last" matching "last exam passing date"
+    if (phraseTokens.length > 1 && searchText.includes(phrase)) return 0.95;
 
-    // Single-word phrase exact match in tokens
-    if (phraseTokens.length === 1) {
-      if (tokens.includes(phraseTokens[0])) return 0.85;
+    // Multi-word phrase: check if ALL phrase tokens appear in field tokens
+    if (phraseTokens.length > 1) {
+      const allFound = phraseTokens.every(pt =>
+        tokens.some(st => st === pt || this.isSubstringMatch(st, pt))
+      );
+      if (allFound) return 0.9;
     }
 
+    // Single-word phrase: exact token match, scaled by field length to prevent
+    // "name" in a 15-word question from matching at high confidence
+    if (phraseTokens.length === 1) {
+      if (tokens.includes(phraseTokens[0])) {
+        if (tokens.length <= 3) return 0.85;
+        if (tokens.length <= 5) return 0.6;
+        return 0;
+      }
+    }
+
+    // Partial multi-word phrase match
     const matchCount = phraseTokens.filter(pt =>
-      tokens.some(st => st === pt || (st.length > 3 && pt.length > 3 && (st.includes(pt) || pt.includes(st))))
+      tokens.some(st => st === pt || this.isSubstringMatch(st, pt))
     ).length;
 
-    if (matchCount > 0) {
+    if (matchCount > 0 && matchCount < phraseTokens.length) {
       const coverage = matchCount / phraseTokens.length;
-      // Partial phrase match: require meaningful overlap, scale down significantly
-      if (matchCount < phraseTokens.length) {
-        if (coverage < 0.5) return 0;
-        return coverage * 0.4;
-      }
-      const relevance = matchCount / Math.max(tokens.length, 1);
-      return Math.max(coverage * 0.7, relevance * 0.6);
+      if (coverage < 0.5) return 0;
+      return coverage * 0.4;
     }
 
     return 0;
@@ -639,8 +654,7 @@ EasyAutoFill.FieldMatcher = {
 
       const found = tokens.some(st =>
         allVariants.some(variant =>
-          st === variant ||
-          (st.length > 3 && variant.length > 3 && (st.includes(variant) || variant.includes(st)))
+          st === variant || this.isSubstringMatch(st, variant)
         )
       );
 
@@ -665,7 +679,7 @@ EasyAutoFill.FieldMatcher = {
         const synonyms = this.WORD_SYNONYMS[kt] || [];
         const variants = [kt, ...synonyms];
 
-        if (tokens.some(st => variants.some(v => st === v || (st.length > 3 && v.length > 3 && (st.startsWith(v) || v.startsWith(st)))))) {
+        if (tokens.some(st => variants.some(v => st === v || this.isSubstringMatch(st, v)))) {
           matchCount++;
         }
       }
