@@ -186,11 +186,16 @@ var EasyAutoFill = EasyAutoFill || {};
     document.querySelectorAll('.eaf-badge').forEach(b => b.remove());
   }
 
+  // Track if we are in the top frame or a sub-frame
+  const isTopFrame = (window === window.top);
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.action) {
 
       case 'detectFields': {
         const fields = FieldDetector.detectFields();
+        // In sub-frames, only respond if we found fields (avoid stealing main frame's response)
+        if (!isTopFrame && fields.length === 0) return false;
         sendResponse({ fields });
         break;
       }
@@ -198,6 +203,8 @@ var EasyAutoFill = EasyAutoFill || {};
       case 'previewFill': {
         clearHighlights();
         const fields = FieldDetector.detectFields();
+        // In sub-frames, only respond if we found fields
+        if (!isTopFrame && fields.length === 0) return false;
         const matches = FieldMatcher.matchAllFields(fields, message.profileData, message.sections);
 
         for (const result of matches) {
@@ -226,6 +233,7 @@ var EasyAutoFill = EasyAutoFill || {};
       case 'fillFields': {
         clearHighlights();
         const fields = FieldDetector.detectFields();
+        if (!isTopFrame && fields.length === 0) return false;
         const matches = FieldMatcher.matchAllFields(fields, message.profileData, message.sections);
         const overrides = message.overrides || {};
         const skipFields = new Set(message.profileData._skipFields || []);
