@@ -39,9 +39,10 @@ EasyAutoFill.FieldMatcher = {
     first_name:     ['first name', 'given name', 'given names', 'forename', 'christian name', 'first', 'fname', 'local given name', 'local given names'],
     middle_name:    ['middle name', 'middle initial', 'middle', 'second name'],
     last_name:      ['last name', 'family name', 'surname', 'last', 'lname', 'local family name'],
-    prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific', 'title'],
+    prefix:         ['prefix', 'salutation', 'mr mrs ms dr', 'honorific'],
     nickname:       ['nickname', 'preferred name', 'known as', 'goes by', 'alias'],
-    gender:         ['gender', 'sex', 'male female', 'identity'],
+    pronouns:       ['pronouns', 'preferred pronouns', 'your pronouns', 'gender pronouns'],
+    gender:         ['gender', 'sex', 'male female'],
     date_of_birth:  ['date of birth', 'dob', 'birthday', 'birth date', 'born on'],
     place_of_birth: ['place of birth', 'birth place', 'city of birth', 'born in', 'birth city'],
     nationality:    ['nationality', 'citizenship', 'national origin'],
@@ -143,11 +144,11 @@ EasyAutoFill.FieldMatcher = {
     pets:              ['pets', 'do you have pets', 'pet details', 'animals'],
 
     // === Links ===
-    linkedin:       ['linkedin', 'linkedin url', 'linkedin profile', 'linked in'],
-    github:         ['github', 'github url', 'github profile', 'git hub'],
-    website:        ['website', 'portfolio', 'personal website', 'homepage', 'portfolio url', 'blog', 'personal site', 'online portfolio'],
+    linkedin:       ['linkedin', 'linkedin url', 'linkedin profile', 'linked in', 'linkedin link', 'linkedin page', 'linkedin account', 'your linkedin'],
+    github:         ['github', 'github url', 'github profile', 'git hub', 'github link', 'github page', 'github account', 'your github'],
+    website:        ['website', 'portfolio', 'personal website', 'homepage', 'portfolio url', 'blog', 'personal site', 'online portfolio', 'url', 'personal url', 'website url', 'website link', 'your website', 'your url'],
     medium:         ['medium', 'medium profile', 'blog url', 'writing portfolio'],
-    twitter:        ['twitter', 'x profile', 'x handle', 'x fka twitter', 'x formerly twitter', 'x twitter'],
+    twitter:        ['twitter', 'x profile', 'x handle', 'x fka twitter', 'x formerly twitter', 'x twitter', 'twitter url', 'twitter link', 'x url', 'x link'],
     facebook:       ['facebook', 'facebook url', 'facebook profile', 'fb'],
     instagram:      ['instagram', 'instagram url', 'ig'],
 
@@ -173,7 +174,6 @@ EasyAutoFill.FieldMatcher = {
   TYPE_MAP: {
     'email': 'email',
     'tel':   'phone',
-    'url':   'website',
   },
 
   WORD_SYNONYMS: {
@@ -204,6 +204,23 @@ EasyAutoFill.FieldMatcher = {
     'language':  ['linguistic', 'tongue'],
   },
 
+  STOPWORDS: new Set([
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'shall', 'can', 'need', 'to', 'of', 'in',
+    'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through',
+    'during', 'before', 'after', 'above', 'below', 'between', 'out', 'off',
+    'over', 'under', 'again', 'then', 'once', 'here', 'there', 'when',
+    'where', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more',
+    'most', 'other', 'some', 'such', 'no', 'not', 'only', 'so', 'than',
+    'too', 'very', 'just', 'but', 'and', 'or', 'if', 'while', 'what',
+    'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'it',
+    'its', 'my', 'your', 'his', 'her', 'our', 'their', 'me', 'him', 'us',
+    'them', 'up', 'we', 'you', 'please', 'enter', 'provide', 'select',
+    'choose', 'write', 'type', 'input', 'fill', 'required', 'optional',
+    'must', 'also', 'any', 'own', 'same', 'because', 'about',
+  ]),
+
   // Sensitive fields that require user confirmation before filling
   SENSITIVE_FIELDS: new Set([
     'aadhaar', 'pan', 'passport_number', 'passport_expiry', 'passport_issue_date', 'passport_issue_place',
@@ -211,12 +228,10 @@ EasyAutoFill.FieldMatcher = {
     'bank_name', 'account_number', 'ifsc_code', 'annual_income',
   ]),
 
-  // Check if a profile key is a sensitive field
   isSensitiveField(profileKey) {
     return this.SENSITIVE_FIELDS.has(profileKey);
   },
 
-  // Profile category definitions
   PROFILE_CATEGORIES: {
     job:        { label: 'Job',        color: '#4F46E5', icon: '💼' },
     academic:   { label: 'Academic',   color: '#059669', icon: '🎓' },
@@ -226,7 +241,6 @@ EasyAutoFill.FieldMatcher = {
     general:    { label: 'General',    color: '#6b7280', icon: '📋' },
   },
 
-  // Domain patterns → suggested profile category
   DOMAIN_CATEGORY_MAP: [
     { pattern: /\.gov\b|\.nic\.in|\.gob\b|\.govt\b/i,                     category: 'government' },
     { pattern: /\.edu\b|\.ac\.\w+|university|college|school|admission/i,   category: 'academic' },
@@ -234,7 +248,6 @@ EasyAutoFill.FieldMatcher = {
     { pattern: /linkedin|indeed|glassdoor|monster|naukri|career|jobs|hiring|workday|greenhouse|lever\.co|bamboohr/i, category: 'job' },
   ],
 
-  // Suggest a profile category based on the current site domain/URL
   suggestCategory(url) {
     if (!url) return null;
     for (const rule of this.DOMAIN_CATEGORY_MAP) {
@@ -243,13 +256,19 @@ EasyAutoFill.FieldMatcher = {
     return null;
   },
 
-  // Fields that should ONLY contain URL values
   URL_FIELDS: new Set(['linkedin', 'github', 'website', 'medium', 'twitter', 'facebook', 'instagram', 'portfolio']),
 
-  // Fields that should NEVER contain URL values
   NON_URL_FIELDS: new Set(['name', 'first_name', 'last_name', 'middle_name', 'address', 'address_line_2', 'city', 'state', 'zip', 'country', 'phone', 'phone_number', 'phone_country_code', 'email', 'company', 'current_title', 'degree', 'university', 'salary', 'gpa']),
 
-  // Month name → number mapping for date parsing
+  URL_DOMAIN_MAP: {
+    linkedin:  ['linkedin.com'],
+    github:    ['github.com', 'github.io'],
+    twitter:   ['twitter.com', 'x.com'],
+    facebook:  ['facebook.com', 'fb.com'],
+    instagram: ['instagram.com'],
+    medium:    ['medium.com'],
+  },
+
   MONTH_MAP: {
     'jan': '01', 'january': '01', 'feb': '02', 'february': '02',
     'mar': '03', 'march': '03', 'apr': '04', 'april': '04',
@@ -259,24 +278,20 @@ EasyAutoFill.FieldMatcher = {
     'dec': '12', 'december': '12',
   },
 
-  // Parse a date string like "Dec 2025" or "August 2024" into MM/YYYY
   parseDateToMMYYYY(dateStr) {
     if (!dateStr) return null;
     const str = dateStr.trim().toLowerCase();
-    if (str === 'present' || str === 'current') return null; // Leave "present" unfilled
+    if (str === 'present' || str === 'current') return null;
 
-    // Try "Month YYYY" format
     const monthYear = str.match(/^([a-z]+)\s+(\d{4})$/);
     if (monthYear) {
       const month = this.MONTH_MAP[monthYear[1]];
       if (month) return month + '/' + monthYear[2];
     }
 
-    // Try "MM/YYYY" already
     const mmyyyy = str.match(/^(\d{1,2})\/(\d{4})$/);
     if (mmyyyy) return mmyyyy[1].padStart(2, '0') + '/' + mmyyyy[2];
 
-    // Try "YYYY-MM"
     const isoMonth = str.match(/^(\d{4})-(\d{1,2})$/);
     if (isoMonth) return isoMonth[2].padStart(2, '0') + '/' + isoMonth[1];
 
@@ -308,6 +323,11 @@ EasyAutoFill.FieldMatcher = {
       }
     }
 
+    // Synthesize full name from parts if missing
+    if (!data.name && data.first_name) {
+      data.name = data.first_name + (data.last_name ? ' ' + data.last_name : '');
+    }
+
     // Expand work experience entries into indexed fields
     if (sections && sections['Work Experience'] && Array.isArray(sections['Work Experience'])) {
       const entries = sections['Work Experience'];
@@ -322,7 +342,6 @@ EasyAutoFill.FieldMatcher = {
         if (entry.location) data[prefix + 'location'] = entry.location;
         if (entry.description) data[prefix + 'description'] = entry.description;
 
-        // Parse duration "Dec 2025 - Present" → from/to dates
         if (entry.duration) {
           const parts = entry.duration.split(/\s*[-–—]\s*/);
           if (parts.length >= 1) {
@@ -383,16 +402,18 @@ EasyAutoFill.FieldMatcher = {
     const autoMatch = this.matchByAutocomplete(fieldInfo, profileData);
     if (autoMatch) return autoMatch;
 
-    // 2. Input type
-    const typeMatch = this.matchByInputType(fieldInfo, profileData);
-    if (typeMatch) return typeMatch;
+    // 2. Input type (skip url — semantic pipeline handles platform-specific URLs better)
+    if (fieldInfo.type !== 'url') {
+      const typeMatch = this.matchByInputType(fieldInfo, profileData);
+      if (typeMatch) return typeMatch;
+    }
 
     // 3. Try matching on LABEL + PLACEHOLDER only first (clean human-readable text)
     const primaryText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel].join(' '));
     const primaryTokens = this.tokenize(primaryText);
 
     if (primaryTokens.length > 0) {
-      const labelMatch = this.runSemanticPipeline(primaryTokens, primaryText, profileData);
+      const labelMatch = this.runSemanticPipeline(primaryTokens, primaryText, profileData, fieldInfo);
       if (labelMatch && labelMatch.confidence >= 0.70) return labelMatch;
     }
 
@@ -400,20 +421,32 @@ EasyAutoFill.FieldMatcher = {
     const fullText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id].join(' '));
     const fullTokens = this.tokenize(fullText);
 
-    const fullMatch = this.runSemanticPipeline(fullTokens, fullText, profileData);
+    const fullMatch = this.runSemanticPipeline(fullTokens, fullText, profileData, fieldInfo);
     if (fullMatch) return fullMatch;
+
+    // 5. For type="url" fields with no specific match, fall back to generic website
+    if (fieldInfo.type === 'url' && profileData['website']) {
+      if (this.validateMatch('website', profileData['website'], fieldInfo)) {
+        return {
+          profileKey: 'website',
+          value: profileData['website'],
+          confidence: 0.70,
+          method: 'type_fallback'
+        };
+      }
+    }
 
     return null;
   },
 
-  runSemanticPipeline(tokens, searchText, profileData) {
-    const semanticMatch = this.matchBySemantic(tokens, searchText, profileData);
+  runSemanticPipeline(tokens, searchText, profileData, fieldInfo) {
+    const semanticMatch = this.matchBySemantic(tokens, searchText, profileData, fieldInfo);
     if (semanticMatch) return semanticMatch;
 
-    const tokenMatch = this.matchByTokenOverlap(tokens, profileData);
+    const tokenMatch = this.matchByTokenOverlap(tokens, profileData, fieldInfo);
     if (tokenMatch) return tokenMatch;
 
-    const fuzzyMatch = this.matchByFuzzy(tokens, profileData);
+    const fuzzyMatch = this.matchByFuzzy(tokens, profileData, fieldInfo);
     if (fuzzyMatch) return fuzzyMatch;
 
     return null;
@@ -429,7 +462,7 @@ EasyAutoFill.FieldMatcher = {
   },
 
   tokenize(text) {
-    return text.split(' ').filter(w => w.length > 1);
+    return text.split(' ').filter(w => w.length > 1 && !this.STOPWORDS.has(w));
   },
 
   // === Validation: ensure value makes sense for the field ===
@@ -442,16 +475,34 @@ EasyAutoFill.FieldMatcher = {
     // URL values should not go into non-URL fields
     if (isURL && this.NON_URL_FIELDS.has(profileKey)) return false;
 
-    // Non-URL values should not go into URL-expected fields based on field label
-    const searchText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id].join(' '));
-    if (!isURL && this.URL_FIELDS.has(profileKey)) {
-      // This is fine — we matched a URL field key but the value isn't a URL
-      // Only block if the field clearly expects a URL
+    // Platform URL validation
+    if (isURL) {
+      const fieldText = this.cleanText(
+        [fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id]
+        .filter(Boolean).join(' ')
+      );
+
+      // If field label mentions a specific platform, URL must belong to that platform
+      for (const [platform, domains] of Object.entries(this.URL_DOMAIN_MAP)) {
+        if (fieldText.includes(platform)) {
+          if (!domains.some(d => strValue.toLowerCase().includes(d))) return false;
+          break;
+        }
+      }
+
+      // If profile key is a known platform, URL must match that platform's domain
+      if (this.URL_DOMAIN_MAP[profileKey]) {
+        const domains = this.URL_DOMAIN_MAP[profileKey];
+        if (!domains.some(d => strValue.toLowerCase().includes(d))) return false;
+      }
     }
 
     // Address fields should not get URL values
-    if (isURL && (searchText.includes('address') || searchText.includes('street') || searchText.includes('city'))) {
-      return false;
+    if (isURL) {
+      const searchText = this.cleanText([fieldInfo.label, fieldInfo.placeholder, fieldInfo.ariaLabel, fieldInfo.name, fieldInfo.id].join(' '));
+      if (searchText.includes('address') || searchText.includes('street') || searchText.includes('city')) {
+        return false;
+      }
     }
 
     // Name fields should not get long text
@@ -502,7 +553,7 @@ EasyAutoFill.FieldMatcher = {
   },
 
   // === Strategy 3: Semantic matching ===
-  matchBySemantic(tokens, searchText, profileData) {
+  matchBySemantic(tokens, searchText, profileData, fieldInfo) {
     let bestMatch = null;
     let bestScore = 0;
 
@@ -513,7 +564,7 @@ EasyAutoFill.FieldMatcher = {
         const score = this.semanticScore(tokens, searchText, phrase);
         if (score > bestScore) {
           const value = profileData[profileKey];
-          if (!this.validateMatch(profileKey, value, { label: searchText })) continue;
+          if (!this.validateMatch(profileKey, value, fieldInfo)) continue;
 
           bestScore = score;
           bestMatch = {
@@ -528,7 +579,7 @@ EasyAutoFill.FieldMatcher = {
       const expandedScore = this.synonymExpandedScore(tokens, profileKey);
       if (expandedScore > bestScore) {
         const value = profileData[profileKey];
-        if (!this.validateMatch(profileKey, value, { label: searchText })) continue;
+        if (!this.validateMatch(profileKey, value, fieldInfo)) continue;
 
         bestScore = expandedScore;
         bestMatch = {
@@ -547,7 +598,8 @@ EasyAutoFill.FieldMatcher = {
     if (searchText === phrase) return 1.0;
     if (searchText.includes(phrase)) return 0.95;
 
-    const phraseTokens = phrase.split(' ');
+    const phraseTokens = phrase.split(' ').filter(w => !this.STOPWORDS.has(w));
+    if (phraseTokens.length === 0) return 0;
 
     const allFound = phraseTokens.every(pt =>
       tokens.some(st => st === pt || st.includes(pt) || pt.includes(st))
@@ -565,6 +617,11 @@ EasyAutoFill.FieldMatcher = {
 
     if (matchCount > 0) {
       const coverage = matchCount / phraseTokens.length;
+      // Partial phrase match: require meaningful overlap, scale down significantly
+      if (matchCount < phraseTokens.length) {
+        if (coverage < 0.5) return 0;
+        return coverage * 0.4;
+      }
       const relevance = matchCount / Math.max(tokens.length, 1);
       return Math.max(coverage * 0.7, relevance * 0.6);
     }
@@ -595,7 +652,7 @@ EasyAutoFill.FieldMatcher = {
   },
 
   // === Strategy 4: Token overlap ===
-  matchByTokenOverlap(tokens, profileData) {
+  matchByTokenOverlap(tokens, profileData, fieldInfo) {
     let bestMatch = null;
     let bestScore = 0;
 
@@ -615,17 +672,22 @@ EasyAutoFill.FieldMatcher = {
 
       if (matchCount > 0) {
         const score = matchCount / keyTokens.length;
-        if (score > bestScore && score >= 0.5) {
+        // For short keys (1-2 tokens), require ALL tokens to match to avoid
+        // "name" alone matching "company_name" or "father_name"
+        const minScore = keyTokens.length <= 2 ? 0.99 : 0.6;
+        if (score >= minScore) {
           const value = profileData[profileKey];
-          if (!this.validateMatch(profileKey, value, { label: tokens.join(' ') })) continue;
+          if (!this.validateMatch(profileKey, value, fieldInfo)) continue;
 
-          bestScore = score;
-          bestMatch = {
-            profileKey,
-            value,
-            confidence: 0.5 + score * 0.3,
-            method: 'token'
-          };
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = {
+              profileKey,
+              value,
+              confidence: 0.5 + score * 0.3,
+              method: 'token'
+            };
+          }
         }
       }
     }
@@ -634,13 +696,17 @@ EasyAutoFill.FieldMatcher = {
   },
 
   // === Strategy 5: Fuzzy matching ===
-  matchByFuzzy(tokens, profileData) {
+  matchByFuzzy(tokens, profileData, fieldInfo) {
     let bestMatch = null;
-    let bestSimilarity = 0;
+    let bestAdjusted = 0;
 
     for (const profileKey of Object.keys(profileData)) {
       const keyNorm = profileKey.replace(/_/g, ' ');
-      const keyTokens = keyNorm.split(' ');
+      const keyTokens = keyNorm.split(' ').filter(t => t.length >= 2);
+      if (keyTokens.length === 0) continue;
+
+      let matchedCount = 0;
+      let bestTokenSim = 0;
 
       for (const st of tokens) {
         if (st.length < 3) continue;
@@ -652,19 +718,30 @@ EasyAutoFill.FieldMatcher = {
           const maxLen = Math.max(st.length, kt.length);
           const similarity = 1 - dist / maxLen;
 
-          if (similarity > 0.75 && similarity > bestSimilarity) {
-            const value = profileData[profileKey];
-            if (!this.validateMatch(profileKey, value, { label: tokens.join(' ') })) continue;
-
-            bestSimilarity = similarity;
-            bestMatch = {
-              profileKey,
-              value,
-              confidence: 0.35 + similarity * 0.3,
-              method: 'fuzzy'
-            };
+          if (similarity > 0.80) {
+            matchedCount++;
+            if (similarity > bestTokenSim) bestTokenSim = similarity;
           }
         }
+      }
+
+      if (matchedCount === 0) continue;
+
+      // Scale similarity by coverage of the key
+      const keyCoverage = Math.min(matchedCount, keyTokens.length) / keyTokens.length;
+      const adjusted = bestTokenSim * keyCoverage;
+
+      if (adjusted > bestAdjusted) {
+        const value = profileData[profileKey];
+        if (!this.validateMatch(profileKey, value, fieldInfo)) continue;
+
+        bestAdjusted = adjusted;
+        bestMatch = {
+          profileKey,
+          value,
+          confidence: 0.35 + adjusted * 0.3,
+          method: 'fuzzy'
+        };
       }
     }
 
@@ -695,21 +772,18 @@ EasyAutoFill.FieldMatcher = {
     const subset = {};
     const prefix = (sectionType === 'work' ? 'work_' : 'edu_') + sectionIndex + '_';
 
-    // Add all indexed fields for this section entry
     for (const [key, value] of Object.entries(enriched)) {
       if (key.startsWith(prefix)) {
-        // Map "work_0_title" → "current_title", "work_0_company" → "company", etc.
         const fieldName = key.substring(prefix.length);
         const mapped = this.SECTION_FIELD_MAP[fieldName];
         if (mapped) subset[mapped] = value;
-        subset[key] = value; // Keep the raw indexed key too
+        subset[key] = value;
       }
     }
 
     return subset;
   },
 
-  // Maps section sub-field names to profile keys for semantic matching
   SECTION_FIELD_MAP: {
     'title': 'current_title',
     'company': 'company',
@@ -725,10 +799,8 @@ EasyAutoFill.FieldMatcher = {
   // === Aggregate matching ===
 
   matchAllFields(fields, profileData, sections) {
-    // Enrich profile with derived fields (phone parts, name parts, indexed work entries)
     const enriched = this.preprocessProfile(profileData, sections);
 
-    // Apply domain-specific overrides if provided
     const domainOverrides = profileData._domainOverrides || {};
 
     const results = [];
@@ -753,12 +825,11 @@ EasyAutoFill.FieldMatcher = {
         }
       }
 
-      // Section-aware matching: if field is in a repeating section, match against that entry
+      // Section-aware matching
       if (field.sectionType && enriched._workEntries) {
         const sectionProfile = this.buildSectionProfile(enriched, field.sectionType, field.sectionIndex);
 
         if (Object.keys(sectionProfile).length > 0) {
-          // Try matching against section-specific data first
           const sectionMatch = this.matchField(field, sectionProfile);
           if (sectionMatch && sectionMatch.confidence >= 0.65) {
             results.push({
@@ -783,10 +854,8 @@ EasyAutoFill.FieldMatcher = {
     }
 
     // Dedup: allow reuse of same key if BOTH matches are high confidence
-    // Only force alternative if one is clearly weaker
-    const keyUsage = new Map(); // profileKey → [{ result, confidence }]
+    const keyUsage = new Map();
 
-    // First pass: group by profile key
     for (const result of results) {
       if (!result.match) continue;
       const key = result.match.profileKey;
@@ -794,25 +863,19 @@ EasyAutoFill.FieldMatcher = {
       keyUsage.get(key).push(result);
     }
 
-    // Second pass: for keys used multiple times, allow reuse if both are >= 0.80
-    // Otherwise, keep highest confidence and try alternatives for the rest
     for (const [key, usages] of keyUsage) {
       if (usages.length <= 1) continue;
 
-      // Sort by confidence descending
       usages.sort((a, b) => b.match.confidence - a.match.confidence);
 
       const best = usages[0];
       for (let i = 1; i < usages.length; i++) {
         const current = usages[i];
-        // Allow reuse if both matches are strong
         if (current.match.confidence >= 0.80 && best.match.confidence >= 0.80) {
-          continue; // Both keep the same key
+          continue;
         }
 
-        // Try to find alternative — but with HIGH threshold
         const altKeys = Object.keys(enriched).filter(k => {
-          // Check this key isn't the primary match for another high-confidence result
           const primaryUsers = keyUsage.get(k);
           if (!primaryUsers) return true;
           return primaryUsers.every(u => u.match.confidence < current.match.confidence);
@@ -823,14 +886,13 @@ EasyAutoFill.FieldMatcher = {
           current.match = altMatch;
           current.status = altMatch.confidence >= 0.75 ? 'matched' : 'ambiguous';
         } else {
-          // No good alternative — leave as unmatched rather than forcing a bad match
           current.match = null;
           current.status = 'unmatched';
         }
       }
     }
 
-    // Apply confidence threshold — drop matches below user's minimum
+    // Apply confidence threshold
     const threshold = profileData._confidenceThreshold || 0.60;
     for (const result of results) {
       if (result.match && result.match.method !== 'domain_override' && result.match.confidence < threshold) {
