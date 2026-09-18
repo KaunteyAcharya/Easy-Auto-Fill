@@ -803,17 +803,24 @@
 
   function sendToContentScript(tabId, message) {
     return new Promise((resolve) => {
-      // Target main frame (frameId: 0) to avoid iframe content scripts
-      // racing and returning empty results (e.g. reCAPTCHA iframe)
       chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (response) => {
         if (chrome.runtime.lastError) {
-          // Main frame failed, try without frameId as fallback
           chrome.tabs.sendMessage(tabId, message, (fallbackResponse) => {
             if (chrome.runtime.lastError) resolve({ error: chrome.runtime.lastError.message });
             else resolve(fallbackResponse || {});
           });
         } else {
-          resolve(response || {});
+          const empty = response &&
+            ((response.fields && response.fields.length === 0) ||
+             (response.matches && response.matches.length === 0));
+          if (empty) {
+            chrome.tabs.sendMessage(tabId, message, (subResponse) => {
+              if (chrome.runtime.lastError || !subResponse) resolve(response);
+              else resolve(subResponse);
+            });
+          } else {
+            resolve(response || {});
+          }
         }
       });
     });
